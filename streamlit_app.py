@@ -6,28 +6,21 @@ from dotenv import load_dotenv
 import os
 import urllib.parse
 from authlib.integrations.requests_client import OAuth2Session
-import streamlit.components.v1 as components
-import json
+import extra_streamlit_components as stx
 
 load_dotenv()
 
 st.set_page_config(page_title="PDF Assistant", page_icon=None, layout="wide")
 
-def set_cookie(name: str, value: dict):
-    # Set cookie explicitly to path=/ so the Streamlit root app can read it
-    val_str = json.dumps(value)
-    components.html(f"""
-        <script>
-            document.cookie = "{name}=" + encodeURIComponent('{val_str}') + "; path=/; max-age=2592000";
-        </script>
-    """, height=0)
+@st.cache_resource(experimental_allow_widgets=True)
+def get_cookie_manager():
+    return stx.CookieManager(key="cookie_manager")
 
-def clear_cookie(name: str):
-    components.html(f"""
-        <script>
-            document.cookie = "{name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-        </script>
-    """, height=0)
+cookie_manager = get_cookie_manager()
+
+# Wait for the JS component to mount and read cookies to prevent login flashing
+if not cookie_manager.is_ready():
+    st.stop()
 
 # ─── Auth Gate ───────────────────────────────────────────────────────────────────
 _client_id = st.secrets.get("GOOGLE_CLIENT_ID") or os.getenv("GOOGLE_CLIENT_ID", "")
@@ -41,18 +34,11 @@ USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
 if "user" not in st.session_state:
     st.session_state.user = None
 
-# 1. Try to restore from cookie instantly using Streamlit's native synchronous context
+# 1. Restore from reliable cookie manager
 if st.session_state.user is None:
-    raw_cookie = st.context.cookies.get("rag_user_session")
-    if raw_cookie:
-        try:
-            decoded = urllib.parse.unquote(raw_cookie)
-            parsed = json.loads(decoded)
-            if isinstance(parsed, str):
-                parsed = json.loads(parsed)
-            st.session_state.user = parsed
-        except Exception:
-            pass
+    saved_user = cookie_manager.get("rag_user_session")
+    if saved_user:
+        st.session_state.user = saved_user
 
 def get_oauth_session():
     return OAuth2Session(_client_id, _client_secret, scope="openid email profile", redirect_uri=_redirect_uri)
@@ -72,7 +58,7 @@ def handle_oauth():
             
             user_data = resp.json()
             st.session_state.user = user_data
-            set_cookie("rag_user_session", user_data)
+            cookie_manager.set("rag_user_session", user_data)
             
             # Clear query params so a refresh doesn't trigger oauth again
             st.query_params.clear()
@@ -558,7 +544,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     if st.button("Logout", use_container_width=True, type="secondary"):
         st.session_state.user = None
-        clear_cookie("rag_user_session")
+        cookie_manager.delete("rag_user_session")
         st.rerun()
     st.divider()
 
