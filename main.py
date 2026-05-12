@@ -9,6 +9,7 @@ import uuid
 import datetime
 import httpx
 from pydantic import BaseModel
+from typing import Optional
 from data_loader import load_and_chunk_pdf, embded_texts
 from vector_db import QdrantStorage
 from custom_types import RAGChunkAndSrc, RAGUpsertResult, RAGSearchResult, RAGQueryResult
@@ -16,7 +17,7 @@ from custom_types import RAGChunkAndSrc, RAGUpsertResult, RAGSearchResult, RAGQu
 class QueryRequest(BaseModel):
     question: str
     top_k: int = 5
-    source_id: str = None
+    source_id: Optional[str] = None
 
 
 load_dotenv()
