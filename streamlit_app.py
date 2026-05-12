@@ -113,6 +113,9 @@ html, body, [class*="css"] {
     color: #d4d4d4;
     font-size: 15px;
 }
+[data-testid="stAppViewBlockContainer"] {
+    padding-top: 2rem !important;
+}
 
 /* Hide Streamlit chrome */
 [data-testid="stDecoration"] { display: none; }
@@ -134,9 +137,8 @@ header { background: transparent !important; }
 
 /* ── Hero strip ── */
 .hero-strip {
-    background: #1a1a1a;
-    border-bottom: 1px solid #2a2a2a;
-    padding: 32px 40px 28px;
+    background: transparent;
+    padding: 0 0 28px 0;
     margin-bottom: 32px;
 }
 .hero-strip h1 {
