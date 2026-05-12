@@ -34,6 +34,11 @@ class QdrantStorage:
             field_name="source",
             field_schema=PayloadSchemaType.KEYWORD,
         )
+        self.client.create_payload_index(
+            collection_name=self.collection,
+            field_name="user_id",
+            field_schema=PayloadSchemaType.KEYWORD,
+        )
 
     def upsert(self, ids, vectors, payloads):
         points = [PointStruct(id=ids[i], vector=vectors[i], payload=payloads[i]) for i in range(len(ids))]
@@ -53,13 +58,12 @@ class QdrantStorage:
                 ]
             )
         elif user_prefix:
-            # Prefix match — query all docs belonging to this user
-            from qdrant_client.models import FieldCondition, MatchText
+            # Query all docs belonging to this user exactly
             query_filter = Filter(
                 must=[
                     FieldCondition(
-                        key="source",
-                        match=MatchText(text=user_prefix)
+                        key="user_id",
+                        match=MatchValue(value=user_prefix)
                     )
                 ]
             )
@@ -94,11 +98,11 @@ class QdrantStorage:
                 scroll_filter=Filter(
                     must=[
                         FieldCondition(
-                            key="source",
-                            match=MatchText(text=user_prefix)
+                            key="user_id",
+                            match=MatchValue(value=user_prefix)
                         )
                     ]
-                ),
+                ) if user_prefix else None,
                 with_payload=["source"],
                 limit=100,
                 offset=next_offset,

@@ -138,7 +138,7 @@ async def sync_ingest(file: UploadFile = File(...), user_id: str = Form(default=
             source_id = f"{user_id}/{file.filename}" if user_id else file.filename
             vecs = embded_texts(chunks)
             ids = [str(uuid.uuid5(uuid.NAMESPACE_URL, f"{source_id}_{i}")) for i in range(len(chunks))]
-            payloads = [{"text": chunks[i], "source": source_id} for i in range(len(chunks))]
+            payloads = [{"text": chunks[i], "source": source_id, "user_id": user_id} for i in range(len(chunks))]
             QdrantStorage().upsert(ids, vecs, payloads)
             return {"ingested": len(chunks), "source_id": source_id}
         finally:
