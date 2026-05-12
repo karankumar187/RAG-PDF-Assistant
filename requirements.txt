@@ -1130,12 +1130,6 @@ starlette==1.0.0 \
 streamlit==1.57.0 \
     --hash=sha256:0b028d305c1a1a757071b2c9504966787602842fc8af6e873795ca58d2b4d12f \
     --hash=sha256:0d1d41972aeade5637dbb0e7f0eefa5312272f85304923d240a1b1f0475249c8
-    # via
-    #   rag-project
-    #   streamlit-cookies-controller
-streamlit-cookies-controller==0.0.4 \
-    --hash=sha256:f5df2543de858f1585dcb6e90f58f38aafbf313ee8e237c64663b2d9761583cc \
-    --hash=sha256:f97fec6acdeee9cb9e16da25c3fc91d404b5b0ddced87c1d9fa9c62f65ca3251
     # via rag-project
 striprtf==0.0.26 \
     --hash=sha256:8c8f9d32083cdc2e8bfb149455aa1cc5a4e0a035893bedc75db8b73becb3a1bb \

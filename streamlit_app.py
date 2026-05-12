@@ -4,14 +4,30 @@ import time
 import streamlit as st
 from dotenv import load_dotenv
 import os
-import requests
 import urllib.parse
 from authlib.integrations.requests_client import OAuth2Session
-from streamlit_cookies_controller import CookieController
+import streamlit.components.v1 as components
+import json
 
 load_dotenv()
 
 st.set_page_config(page_title="PDF Assistant", page_icon=None, layout="wide")
+
+def set_cookie(name: str, value: dict):
+    # Set cookie explicitly to path=/ so the Streamlit root app can read it
+    val_str = json.dumps(value)
+    components.html(f"""
+        <script>
+            document.cookie = "{name}=" + encodeURIComponent('{val_str}') + "; path=/; max-age=2592000";
+        </script>
+    """, height=0)
+
+def clear_cookie(name: str):
+    components.html(f"""
+        <script>
+            document.cookie = "{name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        </script>
+    """, height=0)
 
 # ─── Auth Gate ───────────────────────────────────────────────────────────────────
 _client_id = st.secrets.get("GOOGLE_CLIENT_ID") or os.getenv("GOOGLE_CLIENT_ID", "")
@@ -22,12 +38,8 @@ AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
 
-cookie_controller = CookieController()
-
 if "user" not in st.session_state:
     st.session_state.user = None
-
-import json
 
 # 1. Try to restore from cookie instantly using Streamlit's native synchronous context
 if st.session_state.user is None:
@@ -60,7 +72,7 @@ def handle_oauth():
             
             user_data = resp.json()
             st.session_state.user = user_data
-            cookie_controller.set("rag_user_session", user_data, max_age=86400 * 30) # 30 days
+            set_cookie("rag_user_session", user_data)
             
             # Clear query params so a refresh doesn't trigger oauth again
             st.query_params.clear()
@@ -546,7 +558,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     if st.button("Logout", use_container_width=True, type="secondary"):
         st.session_state.user = None
-        cookie_controller.remove("rag_user_session")
+        clear_cookie("rag_user_session")
         st.rerun()
     st.divider()
 
