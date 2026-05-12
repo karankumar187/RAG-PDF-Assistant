@@ -7,6 +7,7 @@ import os
 import requests
 import urllib.parse
 from authlib.integrations.requests_client import OAuth2Session
+from streamlit_cookies_controller import CookieController
 
 load_dotenv()
 
@@ -21,8 +22,16 @@ AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
 
+cookie_controller = CookieController()
+
 if "user" not in st.session_state:
     st.session_state.user = None
+
+# 1. Try to restore from cookie if not in session state
+if st.session_state.user is None:
+    saved_user = cookie_controller.get("rag_user_session")
+    if saved_user:
+        st.session_state.user = saved_user
 
 def get_oauth_session():
     return OAuth2Session(_client_id, _client_secret, scope="openid email profile", redirect_uri=_redirect_uri)
@@ -39,7 +48,11 @@ def handle_oauth():
             token = oauth.fetch_token(TOKEN_URL, authorization_response=auth_response_url)
             resp = oauth.get(USERINFO_URL)
             resp.raise_for_status()
-            st.session_state.user = resp.json()
+            
+            user_data = resp.json()
+            st.session_state.user = user_data
+            cookie_controller.set("rag_user_session", user_data, max_age=86400 * 30) # 30 days
+            
             # Clear query params so a refresh doesn't trigger oauth again
             st.query_params.clear()
             st.rerun()
@@ -524,6 +537,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     if st.button("Logout", use_container_width=True, type="secondary"):
         st.session_state.user = None
+        cookie_controller.remove("rag_user_session")
         st.rerun()
     st.divider()
 
