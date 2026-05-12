@@ -4,12 +4,23 @@ from qdrant_client.models import VectorParams, Distance, PointStruct, Filter, Fi
 
 
 class QdrantStorage:
-    def __init__(self, collection="docs", dim=3072):
+    def __init__(self, collection="docs", dim=1536):
         qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
         qdrant_api_key = os.getenv("QDRANT_API_KEY", None)
         self.client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key, timeout=30)
         self.collection = collection
-        if not self.client.collection_exists(self.collection):
+        if self.client.collection_exists(self.collection):
+            # Check if the existing collection has the right vector size
+            info = self.client.get_collection(self.collection)
+            existing_dim = info.config.params.vectors.size
+            if existing_dim != dim:
+                # Dimension mismatch — recreate collection
+                self.client.delete_collection(self.collection)
+                self.client.create_collection(
+                    collection_name=self.collection,
+                    vectors_config=VectorParams(size=dim, distance=Distance.COSINE),
+                )
+        else:
             self.client.create_collection(
                 collection_name=self.collection,
                 vectors_config=VectorParams(size=dim, distance=Distance.COSINE),

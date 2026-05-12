@@ -1,8 +1,10 @@
 from llama_index.readers.file import PDFReader
 from llama_index.core.node_parser import SentenceSplitter
-import numpy as np
+from openai import OpenAI
+import os
 
-EMBED_DIM = 3072
+EMBED_DIM = 1536
+EMBED_MODEL = "openai/text-embedding-3-small"
 
 splitter = SentenceSplitter(chunk_size=1000, chunk_overlap=200)
 
@@ -15,11 +17,13 @@ def load_and_chunk_pdf(path: str):
     return chunks
 
 def embded_texts(texts: list[str]) -> list[list[float]]:
-    """Generate simple deterministic embeddings for texts using text-embedding-3-large dimension."""
-    embeddings = []
-    for text in texts:
-        hash_val = hash(text)
-        np.random.seed(abs(hash_val) % (2**31))
-        embedding = np.random.randn(EMBED_DIM).astype(float).tolist()
-        embeddings.append(embedding)
-    return embeddings
+    """Generate real semantic embeddings via OpenRouter."""
+    client = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=os.getenv("OPENROUTER_API_KEY"),
+    )
+    response = client.embeddings.create(
+        model=EMBED_MODEL,
+        input=texts,
+    )
+    return [item.embedding for item in response.data]
