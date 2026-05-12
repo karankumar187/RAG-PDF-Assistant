@@ -346,7 +346,7 @@ def _send_inngest_event(name: str, data: dict) -> dict:
         url = f"https://inn.gs/e/{event_key}"
     else:
         # Local Development: send to local Inngest CLI
-        base_url = _inngest_api_base()
+        base_url = os.getenv("INNGEST_API_BASE", "http://127.0.0.1:8288/v1")
         if base_url.endswith("/v1"):
             base_url = base_url[:-3]
         url = f"{base_url}/e/local"
@@ -362,51 +362,17 @@ def send_rag_ingest_event(pdf_path: Path) -> None:
         {"pdf_path": str(pdf_path.resolve()), "source_id": pdf_path.name},
     )
 
+def _backend_url() -> str:
+    # Use deployed Render URL if INNGEST_EVENT_KEY is present, else local
+    if os.getenv("INNGEST_EVENT_KEY"):
+        return "https://rag-pdf-assistant-1jkt.onrender.com"
+    return "http://127.0.0.1:8288"
 
-def send_rag_query_event(question: str, top_k: int, source_id: str = None) -> str:
-    payload = _send_inngest_event(
-        "rag/query_pdf_ai",
-        {"question": question, "top_k": top_k, "source_id": source_id},
-    )
-    ids = payload.get("ids")
-    if ids and len(ids) > 0:
-        return ids[0]
-    return payload.get("id")
-
-
-def fetch_runs(event_id: str) -> list[dict]:
-    event_key = os.getenv("INNGEST_EVENT_KEY")
-    if event_key:
-        # Production: poll Inngest Cloud REST API
-        url = f"https://api.inngest.com/v1/events/{event_id}/runs"
-        headers = {"Authorization": f"Bearer {os.getenv('INNGEST_REST_API_KEY', '')}"}
-        resp = requests.get(url, headers=headers)
-    else:
-        # Local development
-        url = f"{_inngest_api_base()}/events/{event_id}/runs"
-        resp = requests.get(url)
-        
+def send_rag_query_sync(question: str, top_k: int, source_id: str = None) -> dict:
+    url = f"{_backend_url()}/api/query"
+    resp = requests.post(url, json={"question": question, "top_k": top_k, "source_id": source_id})
     resp.raise_for_status()
-    return resp.json().get("data", [])
-
-
-def wait_for_run_output(event_id: str, timeout_s: float = 120.0, poll_interval_s: float = 0.5) -> dict:
-    start = time.time()
-    last_status = None
-    while True:
-        runs = fetch_runs(event_id)
-        if runs:
-            run = runs[0]
-            status = run.get("status")
-            last_status = status or last_status
-            if status in ("Completed", "Succeeded", "Success", "Finished"):
-                return run.get("output") or {}
-            if status in ("Failed", "Cancelled"):
-                raise RuntimeError(f"Function run {status}")
-        if time.time() - start > timeout_s:
-            raise TimeoutError(f"Timed out (last status: {last_status})")
-        time.sleep(poll_interval_s)
-
+    return resp.json()
 
 # ─── PDF List ─────────────────────────────────────────────────────────────────────
 
@@ -521,10 +487,14 @@ with tab_chat:
     if submitted and question.strip():
         with st.spinner("Searching documents..."):
             source_id = None if selected_pdf == "All Documents" else selected_pdf
-            event_id = send_rag_query_event(question.strip(), int(top_k), source_id)
-            output = wait_for_run_output(event_id)
-            answer = output.get("answer", "")
-            sources = output.get("sources", [])
+            try:
+                output = send_rag_query_sync(question.strip(), int(top_k), source_id)
+                answer = output.get("answer", "")
+                sources = output.get("sources", [])
+            except Exception as e:
+                st.error(f"Error querying backend: {e}")
+                answer = "Error generating answer."
+                sources = []
 
         # Scroll to answer
         st.components.v1.html("""

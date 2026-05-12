@@ -8,9 +8,15 @@ import os
 import uuid
 import datetime
 import httpx
+from pydantic import BaseModel
 from data_loader import load_and_chunk_pdf, embded_texts
 from vector_db import QdrantStorage
 from custom_types import RAGChunkAndSrc, RAGUpsertResult, RAGSearchResult, RAGQueryResult
+
+class QueryRequest(BaseModel):
+    question: str
+    top_k: int = 5
+    source_id: str = None
 
 
 load_dotenv()
@@ -117,5 +123,57 @@ app = FastAPI()
 @app.get("/")
 def health_check():
     return {"status": "ok", "message": "Backend is running!"}
+
+@app.post("/api/query")
+async def sync_query(req: QueryRequest):
+    def _search(question: str, top_k: int = 5, source_id: str = None):
+        query_vec = embded_texts([question])[0]
+        store = QdrantStorage()
+        found = store.search(query_vec, top_k, source_id=source_id)
+        return RAGSearchResult(contexts=found["contexts"], sources=found["sources"])
+    
+    found = _search(req.question, req.top_k, req.source_id)
+
+    context_block = "\n\n".join(f"- {c}" for c in found.contexts)
+    user_content = (
+        "Use the following context to answer the question. \n\n"
+        f"Context: \n{context_block}\n\n"
+        f"Question: {req.question} \n"
+        "Answer concisely using the context above."
+    )
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "http://localhost:8000",
+                "X-Title": "RAG App"
+            },
+            json={
+                "model": "openai/gpt-3.5-turbo",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are a helpful assistant for answering questions based on provided context."
+                    },
+                    {
+                        "role": "user",
+                        "content": user_content
+                    }
+                ],
+                "temperature": 0.2,
+                "max_tokens": 500
+            },
+            timeout=60.0
+        )
+
+        if response.status_code != 200:
+            raise Exception(f"OpenRouter API error: {response.status_code} - {response.text}")
+
+        res = response.json()
+        answer = res["choices"][0]["message"]["content"].strip()
+        return {"answer": answer, "sources": found.sources, "num_contexts": len(found.contexts)}
 
 inngest.fast_api.serve(app, inngest_client, [rag_ingest_pdf, rag_query_pdf_ai])
