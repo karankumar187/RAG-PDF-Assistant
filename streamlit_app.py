@@ -340,10 +340,17 @@ def _inngest_api_base() -> str:
 
 
 def _send_inngest_event(name: str, data: dict) -> dict:
-    base_url = _inngest_api_base()
-    if base_url.endswith("/v1"):
-        base_url = base_url[:-3]
-    url = f"{base_url}/e/local"
+    event_key = os.getenv("INNGEST_EVENT_KEY")
+    if event_key:
+        # Production: send to Inngest Cloud
+        url = f"https://inn.gs/e/{event_key}"
+    else:
+        # Local Development: send to local Inngest CLI
+        base_url = _inngest_api_base()
+        if base_url.endswith("/v1"):
+            base_url = base_url[:-3]
+        url = f"{base_url}/e/local"
+        
     resp = requests.post(url, json={"name": name, "data": data})
     resp.raise_for_status()
     return resp.json()
