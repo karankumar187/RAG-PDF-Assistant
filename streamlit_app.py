@@ -435,7 +435,9 @@ def send_rag_ingest_sync(uploaded_file, user_id: str) -> None:
     files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "application/pdf")}
     data = {"user_id": user_id}
     resp = requests.post(url, files=files, data=data)
-    resp.raise_for_status()
+    if not resp.ok:
+        st.error(f"Backend Error: {resp.status_code} - {resp.text}")
+        st.stop()
 
 
 def fetch_user_sources(user_id: str) -> list[str]:
