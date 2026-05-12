@@ -12,11 +12,7 @@ load_dotenv()
 
 st.set_page_config(page_title="PDF Assistant", page_icon=None, layout="wide")
 
-@st.cache_resource
-def get_cookie_manager():
-    return stx.CookieManager(key="cookie_manager")
-
-cookie_manager = get_cookie_manager()
+cookie_manager = stx.CookieManager(key="cookie_manager")
 
 # Wait for the JS component to mount and read cookies to prevent login flashing
 if not cookie_manager.is_ready():
