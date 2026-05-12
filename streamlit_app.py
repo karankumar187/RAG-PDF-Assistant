@@ -34,7 +34,9 @@ def handle_oauth():
         code = query_params["code"]
         oauth = get_oauth_session()
         try:
-            token = oauth.fetch_token(TOKEN_URL, authorization_response=st.query_params.to_string())
+            # Reconstruct the full redirect URL that Google sent back
+            auth_response_url = f"{_redirect_uri}?{urllib.parse.urlencode(st.query_params)}"
+            token = oauth.fetch_token(TOKEN_URL, authorization_response=auth_response_url)
             resp = oauth.get(USERINFO_URL)
             resp.raise_for_status()
             st.session_state.user = resp.json()
