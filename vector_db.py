@@ -1,6 +1,6 @@
 import os
 from qdrant_client import QdrantClient
-from qdrant_client.models import VectorParams, Distance, PointStruct, Filter, FieldCondition, MatchValue
+from qdrant_client.models import VectorParams, Distance, PointStruct, Filter, FieldCondition, MatchValue, PayloadSchemaType
 
 
 class QdrantStorage:
@@ -16,15 +16,24 @@ class QdrantStorage:
             if existing_dim != dim:
                 # Dimension mismatch — recreate collection
                 self.client.delete_collection(self.collection)
-                self.client.create_collection(
-                    collection_name=self.collection,
-                    vectors_config=VectorParams(size=dim, distance=Distance.COSINE),
-                )
+                self._create_collection(dim)
         else:
-            self.client.create_collection(
-                collection_name=self.collection,
-                vectors_config=VectorParams(size=dim, distance=Distance.COSINE),
-            )
+            self._create_collection(dim)
+        # Always ensure the payload index exists
+        self._ensure_index()
+
+    def _create_collection(self, dim):
+        self.client.create_collection(
+            collection_name=self.collection,
+            vectors_config=VectorParams(size=dim, distance=Distance.COSINE),
+        )
+
+    def _ensure_index(self):
+        self.client.create_payload_index(
+            collection_name=self.collection,
+            field_name="source",
+            field_schema=PayloadSchemaType.KEYWORD,
+        )
 
     def upsert(self, ids, vectors, payloads):
         points = [PointStruct(id=ids[i], vector=vectors[i], payload=payloads[i]) for i in range(len(ids))]
