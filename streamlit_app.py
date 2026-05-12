@@ -375,8 +375,17 @@ def send_rag_query_event(question: str, top_k: int, source_id: str = None) -> st
 
 
 def fetch_runs(event_id: str) -> list[dict]:
-    url = f"{_inngest_api_base()}/events/{event_id}/runs"
-    resp = requests.get(url)
+    event_key = os.getenv("INNGEST_EVENT_KEY")
+    if event_key:
+        # Production: poll Inngest Cloud REST API
+        url = f"https://api.inngest.com/v1/events/{event_id}/runs"
+        headers = {"Authorization": f"Bearer {os.getenv('INNGEST_REST_API_KEY', '')}"}
+        resp = requests.get(url, headers=headers)
+    else:
+        # Local development
+        url = f"{_inngest_api_base()}/events/{event_id}/runs"
+        resp = requests.get(url)
+        
     resp.raise_for_status()
     return resp.json().get("data", [])
 
