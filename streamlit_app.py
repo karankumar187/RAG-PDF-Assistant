@@ -356,6 +356,12 @@ def _send_inngest_event(name: str, data: dict) -> dict:
     return resp.json()
 
 
+def _backend_url() -> str:
+    if os.getenv("INNGEST_EVENT_KEY"):
+        return "https://rag-pdf-assistant-1jkt.onrender.com"
+    return "http://127.0.0.1:8000"
+
+
 def send_rag_ingest_sync(uploaded_file) -> None:
     url = f"{_backend_url()}/api/ingest"
     files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "application/pdf")}
@@ -521,10 +527,20 @@ with tab_chat:
     if submitted and question.strip():
         with st.spinner("Searching documents..."):
             source_id = None if selected_pdf == "All Documents" else selected_pdf
-            event_id = send_rag_query_event(question.strip(), int(top_k), source_id)
-            output = wait_for_run_output(event_id)
-            answer = output.get("answer", "")
-            sources = output.get("sources", [])
+            try:
+                resp = requests.post(
+                    f"{_backend_url()}/api/query",
+                    json={"question": question.strip(), "top_k": int(top_k), "source_id": source_id},
+                    timeout=120,
+                )
+                resp.raise_for_status()
+                output = resp.json()
+                answer = output.get("answer", "")
+                sources = output.get("sources", [])
+            except Exception as e:
+                st.error(f"Error querying backend: {e}")
+                answer = "Error generating answer."
+                sources = []
 
         # Scroll to answer
         st.components.v1.html("""
