@@ -56,7 +56,7 @@ if st.session_state.user is None:
     html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     .stApp { background-color: #111111 !important; color: #d4d4d4; }
     [data-testid="stDecoration"] { display: none; }
-    #MainMenu { visibility: hidden; } footer { visibility: hidden; } header { visibility: hidden; }
+    #MainMenu { visibility: hidden; } footer { visibility: hidden; } header { background: transparent !important; }
     </style>
     """, unsafe_allow_html=True)
     st.markdown("""
@@ -98,7 +98,7 @@ html, body, [class*="css"] {
 [data-testid="stDecoration"] { display: none; }
 #MainMenu { visibility: hidden; }
 footer { visibility: hidden; }
-header { visibility: hidden; }
+header { background: transparent !important; }
 
 /* ── Sidebar ── */
 [data-testid="stSidebar"] {
