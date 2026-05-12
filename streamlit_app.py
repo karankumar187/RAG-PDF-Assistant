@@ -29,7 +29,7 @@ if not st.user.is_logged_in:
     """, unsafe_allow_html=True)
     col_l, col_c, col_r = st.columns([1, 0.4, 1])
     with col_c:
-        st.button("Sign in with Google", on_click=st.login, use_container_width=True, type="primary")
+        st.button("Sign in with Google", on_click=st.login, args=["google"], use_container_width=True, type="primary")
     st.stop()
 
 # Logged-in user identity
