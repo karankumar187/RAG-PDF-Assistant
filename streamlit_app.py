@@ -5,13 +5,39 @@ import streamlit as st
 from dotenv import load_dotenv
 import os
 import requests
+from streamlit_google_auth import Authenticate
 
 load_dotenv()
 
 st.set_page_config(page_title="PDF Assistant", page_icon=None, layout="wide")
 
+
 # ─── Auth Gate ───────────────────────────────────────────────────────────────────
-if not st.user.is_logged_in:
+_client_id = (
+    st.secrets.get("GOOGLE_CLIENT_ID")
+    or os.getenv("GOOGLE_CLIENT_ID", "")
+)
+_client_secret = (
+    st.secrets.get("GOOGLE_CLIENT_SECRET")
+    or os.getenv("GOOGLE_CLIENT_SECRET", "")
+)
+_redirect_uri = (
+    st.secrets.get("GOOGLE_REDIRECT_URI")
+    or os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8501")
+)
+
+authenticator = Authenticate(
+    secret_credentials_path=None,
+    cookie_name="rag_auth",
+    cookie_key=os.getenv("COOKIE_SECRET", st.secrets.get("COOKIE_SECRET", "rag-default-secret-key-32chars!")),
+    redirect_uri=_redirect_uri,
+    client_id=_client_id,
+    client_secret=_client_secret,
+)
+
+authenticator.check_authentification()
+
+if not st.session_state.get("connected"):
     st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -22,19 +48,19 @@ if not st.user.is_logged_in:
     </style>
     """, unsafe_allow_html=True)
     st.markdown("""
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;text-align:center">
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;text-align:center">
         <h1 style="color:#ffffff;font-size:2.2rem;margin-bottom:8px">PDF Assistant</h1>
         <p style="color:#888888;font-size:1rem;margin-bottom:32px">Sign in to access your private document library</p>
     </div>
     """, unsafe_allow_html=True)
-    col_l, col_c, col_r = st.columns([1, 0.4, 1])
+    col_l, col_c, col_r = st.columns([1, 0.6, 1])
     with col_c:
-        st.button("Sign in with Google", on_click=st.login, args=["google"], use_container_width=True, type="primary")
+        authenticator.login()
     st.stop()
 
 # Logged-in user identity
-user_email: str = st.user.email
-user_name: str = getattr(st.user, "name", user_email)
+user_email: str = st.session_state.get("email", "")
+user_name: str = st.session_state.get("name", user_email)
 
 # ─── Custom CSS ──────────────────────────────────────────────────────────────────
 st.markdown("""
@@ -474,7 +500,8 @@ with st.sidebar:
         <div style="font-size:11px;color:#666666;margin-top:2px">{user_email}</div>
     </div>
     """, unsafe_allow_html=True)
-    st.button("Logout", on_click=st.logout, use_container_width=True, type="secondary")
+    if st.button("Logout", use_container_width=True, type="secondary"):
+        authenticator.logout()
     st.divider()
 
     st.markdown("## Document Library")
