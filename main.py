@@ -124,21 +124,25 @@ def health_check():
 
 @app.post("/api/ingest")
 async def sync_ingest(file: UploadFile = File(...), user_id: str = Form(default="")):
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-        shutil.copyfileobj(file.file, tmp)
-        tmp_path = tmp.name
-
     try:
-        chunks = load_and_chunk_pdf(tmp_path)
-        # Scope source_id to user if user_id provided
-        source_id = f"{user_id}/{file.filename}" if user_id else file.filename
-        vecs = embded_texts(chunks)
-        ids = [str(uuid.uuid5(uuid.NAMESPACE_URL, f"{source_id}_{i}")) for i in range(len(chunks))]
-        payloads = [{"text": chunks[i], "source": source_id} for i in range(len(chunks))]
-        QdrantStorage().upsert(ids, vecs, payloads)
-        return {"ingested": len(chunks), "source_id": source_id}
-    finally:
-        os.remove(tmp_path)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+            shutil.copyfileobj(file.file, tmp)
+            tmp_path = tmp.name
+
+        try:
+            chunks = load_and_chunk_pdf(tmp_path)
+            # Scope source_id to user if user_id provided
+            source_id = f"{user_id}/{file.filename}" if user_id else file.filename
+            vecs = embded_texts(chunks)
+            ids = [str(uuid.uuid5(uuid.NAMESPACE_URL, f"{source_id}_{i}")) for i in range(len(chunks))]
+            payloads = [{"text": chunks[i], "source": source_id} for i in range(len(chunks))]
+            QdrantStorage().upsert(ids, vecs, payloads)
+            return {"ingested": len(chunks), "source_id": source_id}
+        finally:
+            os.remove(tmp_path)
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=500, detail=str(e) + "\n" + traceback.format_exc())
 
 
 @app.get("/api/list_sources")
