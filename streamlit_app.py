@@ -27,11 +27,20 @@ cookie_controller = CookieController()
 if "user" not in st.session_state:
     st.session_state.user = None
 
-# 1. Try to restore from cookie if not in session state
+import json
+
+# 1. Try to restore from cookie instantly using Streamlit's native synchronous context
 if st.session_state.user is None:
-    saved_user = cookie_controller.get("rag_user_session")
-    if saved_user:
-        st.session_state.user = saved_user
+    raw_cookie = st.context.cookies.get("rag_user_session")
+    if raw_cookie:
+        try:
+            decoded = urllib.parse.unquote(raw_cookie)
+            parsed = json.loads(decoded)
+            if isinstance(parsed, str):
+                parsed = json.loads(parsed)
+            st.session_state.user = parsed
+        except Exception:
+            pass
 
 def get_oauth_session():
     return OAuth2Session(_client_id, _client_secret, scope="openid email profile", redirect_uri=_redirect_uri)
