@@ -75,6 +75,7 @@ if st.session_state.user is None:
 # Logged-in user identity
 user_email: str = st.session_state.user.get("email", "")
 user_name: str = st.session_state.user.get("name", user_email)
+user_picture: str = st.session_state.user.get("picture", "")
 
 
 # ─── Custom CSS ──────────────────────────────────────────────────────────────────
@@ -509,10 +510,14 @@ if "last_ingested" not in st.session_state:
 
 with st.sidebar:
     # ── User info ──
+    img_html = f'<img src="{user_picture}" style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 1px solid #333;">' if user_picture else ""
     st.markdown(f"""
-    <div style="padding:12px 0 8px 0">
-        <div style="font-size:13px;font-weight:600;color:#ffffff">{user_name}</div>
-        <div style="font-size:11px;color:#666666;margin-top:2px">{user_email}</div>
+    <div style="padding:12px 0 12px 0; display: flex; align-items: center; gap: 12px;">
+        {img_html}
+        <div>
+            <div style="font-size:13px;font-weight:600;color:#ffffff;line-height:1.2">{user_name}</div>
+            <div style="font-size:11px;color:#888888;margin-top:2px;line-height:1.2">{user_email}</div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
     if st.button("Logout", use_container_width=True, type="secondary"):
