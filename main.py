@@ -1,12 +1,11 @@
 import logging
-from fastapi import FastAPI
+from fastapi import FastAPI, Form
 import inngest
 import inngest.fast_api
 from inngest.experimental import ai
 from dotenv import load_dotenv
 import os
 import uuid
-import datetime
 import httpx
 from pydantic import BaseModel
 from typing import Optional
@@ -17,10 +16,12 @@ from data_loader import load_and_chunk_pdf, embded_texts
 from vector_db import QdrantStorage
 from custom_types import RAGChunkAndSrc, RAGUpsertResult, RAGSearchResult, RAGQueryResult
 
+
 class QueryRequest(BaseModel):
     question: str
     top_k: int = 5
-    source_id: Optional[str] = None
+    source_id: Optional[str] = None   # exact file, e.g. "user@gmail.com/file.pdf"
+    user_id: Optional[str] = None     # user email — used to scope "All Documents" searches
 
 
 load_dotenv()
@@ -32,6 +33,7 @@ inngest_client = inngest.Inngest(
     serializer=inngest.PydanticSerializer()
 )
 
+
 @inngest_client.create_function(
     fn_id="RAG: Ingest PDF",
     trigger=inngest.TriggerEvent(event="rag/ingest_pdf")
@@ -42,7 +44,6 @@ async def rag_ingest_pdf(ctx: inngest.Context):
         source_id = ctx.event.data.get("source_id", pdf_path)
         chunks = load_and_chunk_pdf(pdf_path)
         return RAGChunkAndSrc(chunks=chunks, source_id=source_id)
-
 
     def _upsert(chunks_and_src: RAGChunkAndSrc) -> RAGUpsertResult:
         chunks = chunks_and_src.chunks
@@ -57,18 +58,18 @@ async def rag_ingest_pdf(ctx: inngest.Context):
     ingested = await ctx.step.run("embed-and-upsert", lambda: _upsert(chunks_and_src), output_type=RAGUpsertResult)
     return ingested.model_dump()
 
+
 @inngest_client.create_function(
     fn_id="RAG: Query PDF",
     trigger=inngest.TriggerEvent(event="rag/query_pdf_ai")
 )
-
 async def rag_query_pdf_ai(ctx: inngest.Context) -> RAGQueryResult:
     def _search(question: str, top_k: int = 5, source_id: str = None):
         query_vec = embded_texts([question])[0]
         store = QdrantStorage()
         found = store.search(query_vec, top_k, source_id=source_id)
         return RAGSearchResult(contexts=found["contexts"], sources=found["sources"])
-    
+
     question = ctx.event.data["question"]
     top_k = int(ctx.event.data.get("top_k", 5))
     source_id = ctx.event.data.get("source_id", None)
@@ -90,53 +91,47 @@ async def rag_query_pdf_ai(ctx: inngest.Context) -> RAGQueryResult:
                 headers={
                     "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
                     "Content-Type": "application/json",
-                    "HTTP-Referer": "http://localhost:8000",
-                    "X-Title": "RAG App"
+                    "HTTP-Referer": "https://rag-pdf-assistant-1jkt.onrender.com",
+                    "X-Title": "RAG PDF Assistant"
                 },
                 json={
                     "model": "openai/gpt-3.5-turbo",
                     "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are a helpful assistant for answering questions based on provided context."
-                        },
-                        {
-                            "role": "user",
-                            "content": user_content
-                        }
+                        {"role": "system", "content": "You are a helpful assistant for answering questions based on provided context."},
+                        {"role": "user", "content": user_content}
                     ],
                     "temperature": 0.2,
                     "max_tokens": 500
                 },
                 timeout=60.0
             )
-
             if response.status_code != 200:
-                raise Exception(
-                    f"OpenRouter API error: {response.status_code} - {response.text}"
-                )
-
+                raise Exception(f"OpenRouter API error: {response.status_code} - {response.text}")
             return response.json()
 
     res = await ctx.step.run("llm-answer", _infer_openrouter)
     answer = res["choices"][0]["message"]["content"].strip()
-    return {"answer": answer, "sources": found.sources, "num_contexts": len(found.contexts) }
+    return {"answer": answer, "sources": found.sources, "num_contexts": len(found.contexts)}
+
 
 app = FastAPI()
+
 
 @app.get("/")
 def health_check():
     return {"status": "ok", "message": "Backend is running!"}
 
+
 @app.post("/api/ingest")
-async def sync_ingest(file: UploadFile = File(...)):
+async def sync_ingest(file: UploadFile = File(...), user_id: str = Form(default="")):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         shutil.copyfileobj(file.file, tmp)
         tmp_path = tmp.name
-    
+
     try:
         chunks = load_and_chunk_pdf(tmp_path)
-        source_id = file.filename
+        # Scope source_id to user if user_id provided
+        source_id = f"{user_id}/{file.filename}" if user_id else file.filename
         vecs = embded_texts(chunks)
         ids = [str(uuid.uuid5(uuid.NAMESPACE_URL, f"{source_id}_{i}")) for i in range(len(chunks))]
         payloads = [{"text": chunks[i], "source": source_id} for i in range(len(chunks))]
@@ -145,17 +140,35 @@ async def sync_ingest(file: UploadFile = File(...)):
     finally:
         os.remove(tmp_path)
 
+
+@app.get("/api/list_sources")
+def list_sources(user_id: str = ""):
+    store = QdrantStorage()
+    if user_id:
+        sources = store.list_sources(user_prefix=user_id)
+    else:
+        sources = []
+    return {"sources": sources}
+
+
 @app.post("/api/query")
 async def sync_query(req: QueryRequest):
-    def _search(question: str, top_k: int = 5, source_id: str = None):
-        query_vec = embded_texts([question])[0]
-        store = QdrantStorage()
-        found = store.search(query_vec, top_k, source_id=source_id)
-        return RAGSearchResult(contexts=found["contexts"], sources=found["sources"])
-    
-    found = _search(req.question, req.top_k, req.source_id)
+    query_vec = embded_texts([req.question])[0]
+    store = QdrantStorage()
 
-    context_block = "\n\n".join(f"- {c}" for c in found.contexts)
+    if req.source_id:
+        # Query a specific document
+        found_raw = store.search(query_vec, req.top_k, source_id=req.source_id)
+    elif req.user_id:
+        # Query all documents belonging to this user
+        found_raw = store.search(query_vec, req.top_k, user_prefix=req.user_id)
+    else:
+        found_raw = store.search(query_vec, req.top_k)
+
+    contexts = found_raw["contexts"]
+    sources = found_raw["sources"]
+
+    context_block = "\n\n".join(f"- {c}" for c in contexts)
     user_content = (
         "Use the following context to answer the question. \n\n"
         f"Context: \n{context_block}\n\n"
@@ -169,32 +182,26 @@ async def sync_query(req: QueryRequest):
             headers={
                 "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
                 "Content-Type": "application/json",
-                "HTTP-Referer": "http://localhost:8000",
-                "X-Title": "RAG App"
+                "HTTP-Referer": "https://rag-pdf-assistant-1jkt.onrender.com",
+                "X-Title": "RAG PDF Assistant"
             },
             json={
                 "model": "openai/gpt-3.5-turbo",
                 "messages": [
-                    {
-                        "role": "system",
-                        "content": "You are a helpful assistant for answering questions based on provided context."
-                    },
-                    {
-                        "role": "user",
-                        "content": user_content
-                    }
+                    {"role": "system", "content": "You are a helpful assistant for answering questions based on provided context."},
+                    {"role": "user", "content": user_content}
                 ],
                 "temperature": 0.2,
                 "max_tokens": 500
             },
             timeout=60.0
         )
-
         if response.status_code != 200:
             raise Exception(f"OpenRouter API error: {response.status_code} - {response.text}")
 
         res = response.json()
         answer = res["choices"][0]["message"]["content"].strip()
-        return {"answer": answer, "sources": found.sources, "num_contexts": len(found.contexts)}
+        return {"answer": answer, "sources": sources, "num_contexts": len(contexts)}
+
 
 inngest.fast_api.serve(app, inngest_client, [rag_ingest_pdf, rag_query_pdf_ai])

@@ -39,14 +39,27 @@ class QdrantStorage:
         points = [PointStruct(id=ids[i], vector=vectors[i], payload=payloads[i]) for i in range(len(ids))]
         self.client.upsert(self.collection, points=points)
 
-    def search(self, query_vector, top_k: int = 5, source_id: str = None):
+    def search(self, query_vector, top_k: int = 5, source_id: str = None, user_prefix: str = None):
+        """Search with optional exact source_id filter or user_prefix filter."""
         query_filter = None
         if source_id:
+            # Exact match — user querying a specific file
             query_filter = Filter(
                 must=[
                     FieldCondition(
                         key="source",
                         match=MatchValue(value=source_id)
+                    )
+                ]
+            )
+        elif user_prefix:
+            # Prefix match — query all docs belonging to this user
+            from qdrant_client.models import FieldCondition, MatchText
+            query_filter = Filter(
+                must=[
+                    FieldCondition(
+                        key="source",
+                        match=MatchText(text=user_prefix)
                     )
                 ]
             )
@@ -70,6 +83,34 @@ class QdrantStorage:
                 sources.add(source)
 
         return {"contexts": contexts, "sources": list(sources)}
+
+    def list_sources(self, user_prefix: str) -> list[str]:
+        """Return unique source names belonging to a user (prefix match)."""
+        sources = set()
+        next_offset = None
+        while True:
+            records, next_offset = self.client.scroll(
+                collection_name=self.collection,
+                scroll_filter=Filter(
+                    must=[
+                        FieldCondition(
+                            key="source",
+                            match=MatchText(text=user_prefix)
+                        )
+                    ]
+                ),
+                with_payload=["source"],
+                limit=100,
+                offset=next_offset,
+            )
+            for r in records:
+                payload = getattr(r, "payload", None) or {}
+                s = payload.get("source", "")
+                if s:
+                    sources.add(s)
+            if next_offset is None:
+                break
+        return sorted(sources)
 
     def delete_by_source(self, source_id: str):
         self.client.delete(

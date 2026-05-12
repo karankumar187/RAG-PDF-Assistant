@@ -10,6 +10,32 @@ load_dotenv()
 
 st.set_page_config(page_title="PDF Assistant", page_icon=None, layout="wide")
 
+# ─── Auth Gate ───────────────────────────────────────────────────────────────────
+if not st.user.is_logged_in:
+    st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+    .stApp { background-color: #111111 !important; color: #d4d4d4; }
+    [data-testid="stDecoration"] { display: none; }
+    #MainMenu { visibility: hidden; } footer { visibility: hidden; } header { visibility: hidden; }
+    </style>
+    """, unsafe_allow_html=True)
+    st.markdown("""
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;text-align:center">
+        <h1 style="color:#ffffff;font-size:2.2rem;margin-bottom:8px">PDF Assistant</h1>
+        <p style="color:#888888;font-size:1rem;margin-bottom:32px">Sign in to access your private document library</p>
+    </div>
+    """, unsafe_allow_html=True)
+    col_l, col_c, col_r = st.columns([1, 0.4, 1])
+    with col_c:
+        st.button("Sign in with Google", on_click=st.login, use_container_width=True, type="primary")
+    st.stop()
+
+# Logged-in user identity
+user_email: str = st.user.email
+user_name: str = getattr(st.user, "name", user_email)
+
 # ─── Custom CSS ──────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -362,11 +388,25 @@ def _backend_url() -> str:
     return "http://127.0.0.1:8000"
 
 
-def send_rag_ingest_sync(uploaded_file) -> None:
+def send_rag_ingest_sync(uploaded_file, user_id: str) -> None:
     url = f"{_backend_url()}/api/ingest"
     files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "application/pdf")}
-    resp = requests.post(url, files=files)
+    data = {"user_id": user_id}
+    resp = requests.post(url, files=files, data=data)
     resp.raise_for_status()
+
+
+def fetch_user_sources(user_id: str) -> list[str]:
+    """Fetch source names for this user from the backend."""
+    try:
+        resp = requests.get(f"{_backend_url()}/api/list_sources", params={"user_id": user_id}, timeout=10)
+        resp.raise_for_status()
+        raw = resp.json().get("sources", [])
+        # Strip the user prefix so UI shows only the filename
+        prefix = f"{user_id}/"
+        return [s[len(prefix):] if s.startswith(prefix) else s for s in raw]
+    except Exception:
+        return []
 
 
 def send_rag_query_event(question: str, top_k: int, source_id: str = None) -> str:
@@ -416,9 +456,8 @@ def wait_for_run_output(event_id: str, timeout_s: float = 120.0, poll_interval_s
 
 # ─── PDF List ─────────────────────────────────────────────────────────────────────
 
-uploads_dir = Path("uploads")
-uploads_dir.mkdir(parents=True, exist_ok=True)
-pdf_files: list[Path] = sorted(uploads_dir.glob("*.pdf"), key=lambda p: p.stat().st_mtime, reverse=True)
+# Load user's document list from backend
+pdf_filenames: list[str] = fetch_user_sources(user_email)
 
 # Session state for post-rerun feedback
 if "last_ingested" not in st.session_state:
@@ -428,27 +467,37 @@ if "last_ingested" not in st.session_state:
 # ─── Sidebar ──────────────────────────────────────────────────────────────────────
 
 with st.sidebar:
+    # ── User info ──
+    st.markdown(f"""
+    <div style="padding:12px 0 8px 0">
+        <div style="font-size:13px;font-weight:600;color:#ffffff">{user_name}</div>
+        <div style="font-size:11px;color:#666666;margin-top:2px">{user_email}</div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.button("Logout", on_click=st.logout, use_container_width=True, type="secondary")
+    st.divider()
+
     st.markdown("## Document Library")
     st.divider()
 
-    if not pdf_files:
+    if not pdf_filenames:
         st.info("No documents uploaded yet.")
     else:
-        st.metric("Documents indexed", len(pdf_files))
+        st.metric("Documents indexed", len(pdf_filenames))
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown('<p class="section-label">Manage files</p>', unsafe_allow_html=True)
-        for pdf in pdf_files:
+        for fname in pdf_filenames:
+            full_source_id = f"{user_email}/{fname}"
             col1, col2 = st.columns([0.65, 0.35], vertical_alignment="center")
             col1.markdown(
-                f"<span style='font-size:12px;font-weight:500;color:#aaaaaa;word-break:break-all'>{pdf.name}</span>",
+                f"<span style='font-size:12px;font-weight:500;color:#aaaaaa;word-break:break-all'>{fname}</span>",
                 unsafe_allow_html=True,
             )
-            if col2.button("Delete", key=f"del_{pdf.name}", type="secondary"):
+            if col2.button("Delete", key=f"del_{fname}", type="secondary"):
                 try:
-                    pdf.unlink()
                     from vector_db import QdrantStorage
-                    QdrantStorage().delete_by_source(pdf.name)
-                    st.toast(f"Removed {pdf.name}")
+                    QdrantStorage().delete_by_source(full_source_id)
+                    st.toast(f"Removed {fname}")
                     time.sleep(0.4)
                     st.rerun()
                 except Exception as e:
@@ -456,7 +505,7 @@ with st.sidebar:
 
     st.divider()
     st.markdown(
-        '<p style="font-size:11px;color:#3a3a3a">Inngest · Qdrant · OpenRouter</p>',
+        '<p style="font-size:11px;color:#3a3a3a">Qdrant · OpenRouter · Google Auth</p>',
         unsafe_allow_html=True,
     )
 
@@ -491,9 +540,8 @@ with tab_upload:
         with col_btn:
             if st.button("Ingest Document", type="primary"):
                 with st.spinner("Processing document..."):
-                    path = save_uploaded_pdf(uploaded)
-                    send_rag_ingest_sync(uploaded)
-                st.session_state.last_ingested = path.name
+                    send_rag_ingest_sync(uploaded, user_id=user_email)
+                st.session_state.last_ingested = uploaded.name
                 st.rerun()
 
     if st.session_state.last_ingested:
@@ -514,7 +562,7 @@ with tab_chat:
         )
         col1, col2 = st.columns([0.6, 0.4], vertical_alignment="bottom")
         with col1:
-            pdf_options = ["All Documents"] + [p.name for p in pdf_files]
+            pdf_options = ["All Documents"] + pdf_filenames
             selected_pdf = st.selectbox("Source", pdf_options)
         with col2:
             top_k = st.number_input(
@@ -526,17 +574,24 @@ with tab_chat:
 
     if submitted and question.strip():
         with st.spinner("Searching documents..."):
-            source_id = None if selected_pdf == "All Documents" else selected_pdf
+            # Build the scoped source_id if user selected a specific file
+            if selected_pdf == "All Documents":
+                source_id = None
+            else:
+                source_id = f"{user_email}/{selected_pdf}"
             try:
                 resp = requests.post(
                     f"{_backend_url()}/api/query",
-                    json={"question": question.strip(), "top_k": int(top_k), "source_id": source_id},
+                    json={"question": question.strip(), "top_k": int(top_k), "source_id": source_id, "user_id": user_email},
                     timeout=120,
                 )
                 resp.raise_for_status()
                 output = resp.json()
                 answer = output.get("answer", "")
-                sources = output.get("sources", [])
+                raw_sources = output.get("sources", [])
+                # Strip user prefix from displayed sources
+                prefix = f"{user_email}/"
+                sources = [s[len(prefix):] if s.startswith(prefix) else s for s in raw_sources]
             except Exception as e:
                 st.error(f"Error querying backend: {e}")
                 answer = "Error generating answer."
