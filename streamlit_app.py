@@ -14,9 +14,13 @@ st.set_page_config(page_title="PDF Assistant", page_icon=None, layout="wide")
 
 cookie_manager = stx.CookieManager(key="cookie_manager")
 
-# Wait for the JS component to mount and read cookies to prevent login flashing
-if not cookie_manager.is_ready():
-    st.stop()
+import time
+
+# Prevent login screen from flashing on refresh by waiting for JS to load cookies
+if "cookie_initialized" not in st.session_state:
+    st.session_state.cookie_initialized = True
+    time.sleep(0.5)
+    st.rerun()
 
 # ─── Auth Gate ───────────────────────────────────────────────────────────────────
 _client_id = st.secrets.get("GOOGLE_CLIENT_ID") or os.getenv("GOOGLE_CLIENT_ID", "")
