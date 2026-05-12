@@ -131,6 +131,9 @@ async def sync_ingest(file: UploadFile = File(...), user_id: str = Form(default=
 
         try:
             chunks = load_and_chunk_pdf(tmp_path)
+            if not chunks:
+                raise HTTPException(status_code=400, detail="No extractable text found in this PDF. It might be an image-only scanned document, or completely blank.")
+            
             # Scope source_id to user if user_id provided
             source_id = f"{user_id}/{file.filename}" if user_id else file.filename
             vecs = embded_texts(chunks)
