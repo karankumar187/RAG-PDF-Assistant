@@ -5,39 +5,49 @@ import streamlit as st
 from dotenv import load_dotenv
 import os
 import requests
-from streamlit_google_auth import Authenticate
+import urllib.parse
+from authlib.integrations.requests_client import OAuth2Session
 
 load_dotenv()
 
 st.set_page_config(page_title="PDF Assistant", page_icon=None, layout="wide")
 
-
 # ─── Auth Gate ───────────────────────────────────────────────────────────────────
-_client_id = (
-    st.secrets.get("GOOGLE_CLIENT_ID")
-    or os.getenv("GOOGLE_CLIENT_ID", "")
-)
-_client_secret = (
-    st.secrets.get("GOOGLE_CLIENT_SECRET")
-    or os.getenv("GOOGLE_CLIENT_SECRET", "")
-)
-_redirect_uri = (
-    st.secrets.get("GOOGLE_REDIRECT_URI")
-    or os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8501")
-)
+_client_id = st.secrets.get("GOOGLE_CLIENT_ID") or os.getenv("GOOGLE_CLIENT_ID", "")
+_client_secret = st.secrets.get("GOOGLE_CLIENT_SECRET") or os.getenv("GOOGLE_CLIENT_SECRET", "")
+_redirect_uri = st.secrets.get("GOOGLE_REDIRECT_URI") or os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8501")
 
-authenticator = Authenticate(
-    secret_credentials_path=None,
-    cookie_name="rag_auth",
-    cookie_key=os.getenv("COOKIE_SECRET", st.secrets.get("COOKIE_SECRET", "rag-default-secret-key-32chars!")),
-    redirect_uri=_redirect_uri,
-    client_id=_client_id,
-    client_secret=_client_secret,
-)
+AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+TOKEN_URL = "https://oauth2.googleapis.com/token"
+USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
 
-authenticator.check_authentification()
+if "user" not in st.session_state:
+    st.session_state.user = None
 
-if not st.session_state.get("connected"):
+def get_oauth_session():
+    return OAuth2Session(_client_id, _client_secret, scope="openid email profile", redirect_uri=_redirect_uri)
+
+def handle_oauth():
+    # If returning from OAuth, we will have a 'code' in query params
+    query_params = st.query_params
+    if "code" in query_params:
+        code = query_params["code"]
+        oauth = get_oauth_session()
+        try:
+            token = oauth.fetch_token(TOKEN_URL, authorization_response=st.query_params.to_string())
+            resp = oauth.get(USERINFO_URL)
+            resp.raise_for_status()
+            st.session_state.user = resp.json()
+            # Clear query params so a refresh doesn't trigger oauth again
+            st.query_params.clear()
+            st.rerun()
+        except Exception as e:
+            st.error(f"Authentication failed: {e}")
+
+if st.session_state.user is None:
+    handle_oauth()
+
+if st.session_state.user is None:
     st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -55,12 +65,15 @@ if not st.session_state.get("connected"):
     """, unsafe_allow_html=True)
     col_l, col_c, col_r = st.columns([1, 0.6, 1])
     with col_c:
-        authenticator.login()
+        oauth = get_oauth_session()
+        auth_url, state = oauth.create_authorization_url(AUTHORIZATION_URL)
+        st.link_button("Sign in with Google", url=auth_url, use_container_width=True, type="primary")
     st.stop()
 
 # Logged-in user identity
-user_email: str = st.session_state.get("email", "")
-user_name: str = st.session_state.get("name", user_email)
+user_email: str = st.session_state.user.get("email", "")
+user_name: str = st.session_state.user.get("name", user_email)
+
 
 # ─── Custom CSS ──────────────────────────────────────────────────────────────────
 st.markdown("""
@@ -501,7 +514,8 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
     if st.button("Logout", use_container_width=True, type="secondary"):
-        authenticator.logout()
+        st.session_state.user = None
+        st.rerun()
     st.divider()
 
     st.markdown("## Document Library")
