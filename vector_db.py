@@ -52,32 +52,13 @@ class QdrantStorage:
             if isinstance(source_id, str):
                 # Exact match — user querying a single file
                 query_filter = Filter(
-                    must=[
-                        FieldCondition(
-                            key="source",
-                            match=MatchValue(value=source_id)
-                        )
-                    ]
+                    must=[FieldCondition(key="source", match=MatchValue(value=source_id))]
                 )
             elif isinstance(source_id, list):
                 # Match any of the provided source IDs
-                query_filter = Filter(
-                    must=[
-                        FieldCondition(
-                            key="source",
-                            match=MatchValue(value=source_id) if len(source_id) == 1 else MatchValue(value=source_id) # Qdrant match value can take a list? No, MatchAny is for that.
-                        )
-                    ]
-                )
-                # Wait, Qdrant FieldCondition match can take MatchAny
                 from qdrant_client.models import MatchAny
                 query_filter = Filter(
-                    must=[
-                        FieldCondition(
-                            key="source",
-                            match=MatchAny(any=source_id)
-                        )
-                    ]
+                    must=[FieldCondition(key="source", match=MatchAny(any=source_id))]
                 )
         elif user_prefix:
             # Query all docs belonging to this user exactly
