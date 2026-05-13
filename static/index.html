@@ -43,11 +43,20 @@ input,textarea{font-family:inherit;outline:none;border:none}
 .user-email{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .section-label{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;padding:0 4px}
 .doc-list{flex:1;overflow-y:auto;padding:0 16px 16px}
-.doc-item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:6px;cursor:pointer;transition:background .15s;margin-bottom:2px;position:relative}
+.doc-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:6px;cursor:pointer;transition:all .15s;margin-bottom:4px;position:relative}
 .doc-item:hover{background:var(--surface2)}
-.doc-item.active{background:var(--surface2);border-left:2px solid #888}
+.doc-item.active{background:var(--surface2)}
+.doc-item.active::before{
+  content:'';
+  position:absolute;
+  left:0;
+  top:8px;
+  bottom:8px;
+  width:3px;
+  background:#fff;
+  border-radius:0 4px 4px 0;
+}
 .doc-name-wrap{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
-.doc-checkbox{width:14px;height:14px;accent-color:#fff;cursor:pointer}
 .doc-name{font-size:12px;color:#c0c0c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .doc-empty{font-size:12px;color:var(--muted);padding:8px 10px;font-style:italic}
 .delete-btn{opacity:0;color:var(--muted);font-size:16px;padding:2px 6px;border-radius:4px;transition:all .15s;flex-shrink:0}
@@ -187,7 +196,7 @@ input,textarea{font-family:inherit;outline:none;border:none}
             <div class="field">
               <label id="selected-count-label">Search Source</label>
               <div id="multi-select-display" style="background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); padding:10px 14px; font-size:13px; color:#aaa; cursor:default">
-                Select documents in the sidebar
+                Click documents in the sidebar
               </div>
             </div>
             <div class="field" style="flex:0 0 auto">
@@ -355,7 +364,6 @@ function renderDocList() {
   el.innerHTML = docs.map(d => `
     <div class="doc-item ${selectedDocs.has(d)?'active':''}" onclick="toggleDocSelection('${d.replace(/'/g,"\\'")}')">
       <div class="doc-name-wrap">
-        <input type="checkbox" class="doc-checkbox" ${selectedDocs.has(d)?'checked':''} onclick="event.stopPropagation(); toggleDocSelection('${d.replace(/'/g,"\\'")}')">
         <span class="doc-name" title="${d}">${d}</span>
       </div>
       <button class="delete-btn" onclick="event.stopPropagation(); deleteDoc('${d.replace(/'/g,"\\'")}')" title="Delete">×</button>
@@ -462,7 +470,6 @@ async function askQuestion() {
   btn.innerHTML = '<span class="spinner"></span>Searching...';
   outputEl.innerHTML = '';
   try {
-    // If no docs selected, send null to search all
     const source_id = selectedDocs.size > 0 
       ? Array.from(selectedDocs).map(name => `${user.email}/${name}`) 
       : null;
