@@ -1,5 +1,8 @@
 import logging
 from fastapi import FastAPI, Form, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import inngest
 import inngest.fast_api
 from inngest.experimental import ai
@@ -116,10 +119,69 @@ async def rag_query_pdf_ai(ctx: inngest.Context) -> RAGQueryResult:
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Serve the HTML frontend from /static
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+class OAuthCallbackRequest(BaseModel):
+    code: str
+    redirect_uri: str
+
+
+@app.post("/api/auth/callback")
+async def oauth_callback(req: OAuthCallbackRequest):
+    """Exchange OAuth authorization code for user info (server-side, keeps client_secret safe)."""
+    client_id = os.getenv("GOOGLE_CLIENT_ID", "")
+    client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "")
+    async with httpx.AsyncClient() as client:
+        # Exchange code for tokens
+        token_resp = await client.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "code": req.code,
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "redirect_uri": req.redirect_uri,
+                "grant_type": "authorization_code",
+            },
+        )
+        if token_resp.status_code != 200:
+            raise HTTPException(status_code=401, detail="Token exchange failed")
+        tokens = token_resp.json()
+        access_token = tokens.get("access_token")
+        # Fetch user info
+        userinfo_resp = await client.get(
+            "https://openidconnect.googleapis.com/v1/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        if userinfo_resp.status_code != 200:
+            raise HTTPException(status_code=401, detail="Failed to fetch user info")
+        return userinfo_resp.json()
+
 
 @app.get("/")
+def serve_app():
+    return FileResponse("static/index.html")
+
+
+@app.get("/health")
 def health_check():
     return {"status": "ok", "message": "Backend is running!"}
+
+
+@app.get("/api/config")
+def get_config():
+    return {
+        "google_client_id": os.getenv("GOOGLE_CLIENT_ID", ""),
+    }
 
 
 @app.post("/api/ingest")
