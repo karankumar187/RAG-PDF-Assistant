@@ -20,21 +20,20 @@ button{font-family:inherit;cursor:pointer;border:none;outline:none}
 input,textarea{font-family:inherit;outline:none;border:none}
 
 /* ── LOGIN ── */
-#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:0}
-.login-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:48px 40px;text-align:center;width:340px;animation:fadeUp .4s ease}
+#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:0;padding:20px}
+.login-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:48px 40px;text-align:center;width:100%;max-width:360px;animation:fadeUp .4s ease}
 .login-card h1{font-size:24px;font-weight:700;color:#fff;margin-bottom:8px}
 .login-card p{color:var(--muted);font-size:13px;margin-bottom:32px;line-height:1.6}
 .login-logo{width:48px;height:48px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:22px;color:var(--muted)}
 .google-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px 20px;background:#fff;color:#1a1a1a;border-radius:var(--radius);font-size:14px;font-weight:600;transition:opacity .15s;cursor:pointer}
 .google-btn:hover{opacity:.88}
-.google-btn svg{flex-shrink:0}
 
 /* ── APP SHELL ── */
-#app-screen{display:none;height:100vh;flex-direction:row}
+#app-screen{display:none;height:100vh;overflow:hidden}
 #app-screen.visible{display:flex}
 
 /* ── SIDEBAR ── */
-.sidebar{width:var(--sidebar);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+.sidebar{width:var(--sidebar);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;z-index:1000}
 .sidebar-top{padding:20px 16px 0}
 .user-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px;margin-bottom:20px}
 .user-avatar{width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--subtle)}
@@ -46,16 +45,7 @@ input,textarea{font-family:inherit;outline:none;border:none}
 .doc-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:6px;cursor:pointer;transition:all .15s;margin-bottom:4px;position:relative}
 .doc-item:hover{background:var(--surface2)}
 .doc-item.active{background:var(--surface2)}
-.doc-item.active::before{
-  content:'';
-  position:absolute;
-  left:0;
-  top:8px;
-  bottom:8px;
-  width:3px;
-  background:#fff;
-  border-radius:0 4px 4px 0;
-}
+.doc-item.active::before{content:'';position:absolute;left:0;top:8px;bottom:8px;width:3px;background:#fff;border-radius:0 4px 4px 0}
 .doc-name-wrap{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
 .doc-name{font-size:12px;color:#c0c0c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .doc-empty{font-size:12px;color:var(--muted);padding:8px 10px;font-style:italic}
@@ -67,16 +57,16 @@ input,textarea{font-family:inherit;outline:none;border:none}
 .logout-btn:hover{background:var(--surface2);color:var(--text)}
 
 /* ── MAIN ── */
-.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-.main-header{padding:24px 32px 0;flex-shrink:0}
-.main-header h1{font-size:22px;font-weight:700;color:#fff}
-.main-header p{font-size:13px;color:var(--muted);margin-top:4px}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.main-header{padding:24px 32px 0;flex-shrink:0;display:flex;align-items:flex-start;justify-content:space-between}
+.header-titles h1{font-size:22px;font-weight:700;color:#fff}
+.header-titles p{font-size:13px;color:var(--muted);margin-top:4px}
+.mobile-menu-btn{display:none;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:8px;font-size:18px}
 
 /* ── TABS ── */
-.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);padding:0 32px;margin-top:24px;flex-shrink:0}
-.tab-btn{padding:10px 18px;background:transparent;color:var(--muted);font-size:14px;font-weight:500;border-bottom:2px solid transparent;cursor:pointer;transition:all .15s;margin-bottom:-1px}
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);padding:0 32px;margin-top:24px;flex-shrink:0;overflow-x:auto}
+.tab-btn{padding:10px 18px;background:transparent;color:var(--muted);font-size:14px;font-weight:500;border-bottom:2px solid transparent;cursor:pointer;transition:all .15s;margin-bottom:-1px;white-space:nowrap}
 .tab-btn.active{color:#fff;border-bottom-color:#888}
-.tab-btn:hover:not(.active){color:#bbb}
 
 /* ── TAB CONTENT ── */
 .tab-content{flex:1;overflow-y:auto;padding:28px 32px}
@@ -90,24 +80,19 @@ input,textarea{font-family:inherit;outline:none;border:none}
 .drop-icon{font-size:24px;margin-bottom:12px;color:var(--muted)}
 .drop-zone h3{font-size:15px;font-weight:600;color:#ccc;margin-bottom:6px}
 .drop-zone p{font-size:12px;color:var(--muted)}
-.file-selected{margin-top:20px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;display:flex;align-items:center;justify-content:space-between}
-.file-selected-name{font-size:13px;color:#ccc;display:flex;align-items:center;gap:8px}
-.ingest-btn{padding:10px 24px;background:#fff;color:#111;border-radius:var(--radius);font-size:13px;font-weight:600;transition:opacity .15s}
-.ingest-btn:hover{opacity:.85}
-.ingest-btn:disabled{opacity:.4;cursor:not-allowed}
+.file-selected{margin-top:20px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.file-selected-name{font-size:13px;color:#ccc;display:flex;align-items:center;gap:8px;word-break:break-all}
 
 /* ── ASK ── */
 .question-form{display:flex;flex-direction:column;gap:14px;margin-bottom:28px}
-.form-row{display:flex;gap:12px;align-items:flex-end}
-.field{display:flex;flex-direction:column;gap:6px;flex:1}
+.form-row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+.field{display:flex;flex-direction:column;gap:6px;flex:1;min-width:200px}
 .field label{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .field input,.field select,.field input[type=number]{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;color:var(--text);font-size:14px;width:100%;transition:border-color .15s}
-.field input:focus,.field select:focus{border-color:#555}
 .field select{appearance:none;cursor:pointer}
 .field input[type=number]{width:100px}
-.search-btn{padding:10px 24px;background:#fff;color:#111;border-radius:var(--radius);font-size:13px;font-weight:600;transition:opacity .15s;flex-shrink:0;height:40px}
+.search-btn{padding:10px 24px;background:#fff;color:#111;border-radius:var(--radius);font-size:13px;font-weight:600;transition:opacity .15s;flex-shrink:0;height:40px;min-width:100px}
 .search-btn:hover{opacity:.85}
-.search-btn:disabled{opacity:.4;cursor:not-allowed}
 
 /* ── QA BLOCKS ── */
 .qa-wrap{display:flex;flex-direction:column;gap:16px}
@@ -121,12 +106,45 @@ input,textarea{font-family:inherit;outline:none;border:none}
 .alert{padding:12px 16px;border-radius:var(--radius);font-size:13px;margin-bottom:16px}
 .alert-error{background:#1e0e0e;border:1px solid #3a1a1a;color:#e07070}
 .alert-success{background:#0e1e0e;border:1px solid #1a3a1a;color:#70c070}
-.alert-info{background:var(--surface2);border:1px solid var(--border);color:#aaa}
 
 /* ── SPINNER ── */
 .spinner{display:inline-block;width:16px;height:16px;border:2px solid #333;border-top-color:#888;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 860px) {
+  :root { --sidebar: 240px; }
+  .main-header { padding: 20px 20px 0; }
+  .tabs { padding: 0 20px; }
+  .tab-content { padding: 20px; }
+  
+  .sidebar {
+    position: fixed;
+    top: 0; bottom: 0; left: -var(--sidebar);
+    box-shadow: 20px 0 50px rgba(0,0,0,0.5);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .sidebar.open { transform: translateX(var(--sidebar)); }
+  .mobile-menu-btn { display: block; }
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 900;
+    backdrop-filter: blur(2px);
+  }
+  .sidebar-overlay.active { display: block; }
+}
+
+@media (max-width: 480px) {
+  .header-titles h1 { font-size: 18px; }
+  .header-titles p { font-size: 11px; }
+  .form-row .field { min-width: 100%; }
+  .search-btn { width: 100%; }
+  .tab-btn { padding: 10px 12px; font-size: 13px; }
+}
 
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar{width:5px}
@@ -135,6 +153,8 @@ input,textarea{font-family:inherit;outline:none;border:none}
 </style>
 </head>
 <body>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar(false)"></div>
 
 <!-- LOGIN -->
 <div id="login-screen">
@@ -152,7 +172,7 @@ input,textarea{font-family:inherit;outline:none;border:none}
 <!-- APP -->
 <div id="app-screen">
   <!-- Sidebar -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
     <div class="sidebar-top" style="padding-top:32px">
       <div class="user-card">
         <img class="user-avatar" id="user-avatar" src="" alt=""/>
@@ -174,8 +194,11 @@ input,textarea{font-family:inherit;outline:none;border:none}
   <!-- Main -->
   <div class="main">
     <div class="main-header">
-      <h1>PDF Assistant</h1>
-      <p>Upload documents and ask questions grounded in your own files.</p>
+      <div class="header-titles">
+        <h1>PDF Assistant</h1>
+        <p>Answers grounded in your files.</p>
+      </div>
+      <button class="mobile-menu-btn" onclick="toggleSidebar(true)">☰</button>
     </div>
 
     <div class="tabs">
@@ -190,16 +213,16 @@ input,textarea{font-family:inherit;outline:none;border:none}
         <div class="question-form">
           <div class="field">
             <label>Your Question</label>
-            <input type="text" id="question-input" placeholder="e.g. What is the main argument in Chapter 2?"/>
+            <input type="text" id="question-input" placeholder="e.g. Summarize the main points..."/>
           </div>
           <div class="form-row">
             <div class="field">
               <label id="selected-count-label">Search Source</label>
-              <div id="multi-select-display" style="background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); padding:10px 14px; font-size:13px; color:#aaa; cursor:default">
-                Click documents in the sidebar
+              <div id="multi-select-display" style="background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); padding:10px 14px; font-size:13px; color:#aaa; cursor:pointer" onclick="toggleSidebar(true)">
+                All Documents
               </div>
             </div>
-            <div class="field" style="flex:0 0 auto">
+            <div class="field" style="flex:0 0 auto; min-width:80px">
               <label>Chunks</label>
               <input type="number" id="top-k" value="5" min="1" max="20"/>
             </div>
@@ -216,8 +239,8 @@ input,textarea{font-family:inherit;outline:none;border:none}
         <div class="drop-zone" id="drop-zone">
           <input type="file" accept=".pdf" id="file-input" onchange="onFileSelected(this.files[0])"/>
           <div class="drop-icon">↑</div>
-          <h3>Drop a PDF here or click to browse</h3>
-          <p>Only PDF files are supported</p>
+          <h3>Upload PDF</h3>
+          <p>Click or drag and drop</p>
         </div>
         <div class="file-selected" id="file-selected" style="display:none">
           <div class="file-selected-name"><span id="selected-file-name"></span></div>
@@ -259,6 +282,18 @@ async function init() {
   }
 
   showLogin();
+}
+
+function toggleSidebar(open) {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  if (open) {
+    sidebar.classList.add('open');
+    overlay.classList.add('active');
+  } else {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('active');
+  }
 }
 
 // ── OAUTH ────────────────────────────────────────────────────
