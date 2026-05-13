@@ -23,8 +23,8 @@ from custom_types import RAGChunkAndSrc, RAGUpsertResult, RAGSearchResult, RAGQu
 class QueryRequest(BaseModel):
     question: str
     top_k: int = 5
-    source_id: Optional[str] = None   # exact file, e.g. "user@gmail.com/file.pdf"
-    user_id: Optional[str] = None     # user email — used to scope "All Documents" searches
+    source_id: Optional[str | list[str]] = None   # single file OR list of files
+    user_id: Optional[str] = None                # user email — used to scope "All Documents" searches
 
 
 load_dotenv()

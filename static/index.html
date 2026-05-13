@@ -36,7 +36,6 @@ input,textarea{font-family:inherit;outline:none;border:none}
 /* ── SIDEBAR ── */
 .sidebar{width:var(--sidebar);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
 .sidebar-top{padding:20px 16px 0}
-.brand{font-size:15px;font-weight:700;color:#fff;margin-bottom:20px;display:flex;align-items:center;gap:8px}
 .user-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px;margin-bottom:20px}
 .user-avatar{width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--subtle)}
 .user-info{min-width:0}
@@ -48,6 +47,7 @@ input,textarea{font-family:inherit;outline:none;border:none}
 .doc-item:hover{background:var(--surface2)}
 .doc-item.active{background:var(--surface2);border-left:2px solid #888}
 .doc-name-wrap{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
+.doc-checkbox{width:14px;height:14px;accent-color:#fff;cursor:pointer}
 .doc-name{font-size:12px;color:#c0c0c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .doc-empty{font-size:12px;color:var(--muted);padding:8px 10px;font-style:italic}
 .delete-btn{opacity:0;color:var(--muted);font-size:16px;padding:2px 6px;border-radius:4px;transition:all .15s;flex-shrink:0}
@@ -78,7 +78,7 @@ input,textarea{font-family:inherit;outline:none;border:none}
 .drop-zone{border:2px dashed var(--border);border-radius:12px;padding:48px 32px;text-align:center;cursor:pointer;transition:all .2s;position:relative}
 .drop-zone:hover,.drop-zone.dragover{border-color:#555;background:var(--surface2)}
 .drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
-.drop-icon{font-size:32px;margin-bottom:12px;color:var(--muted)}
+.drop-icon{font-size:24px;margin-bottom:12px;color:var(--muted)}
 .drop-zone h3{font-size:15px;font-weight:600;color:#ccc;margin-bottom:6px}
 .drop-zone p{font-size:12px;color:var(--muted)}
 .file-selected{margin-top:20px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;display:flex;align-items:center;justify-content:space-between}
@@ -144,8 +144,7 @@ input,textarea{font-family:inherit;outline:none;border:none}
 <div id="app-screen">
   <!-- Sidebar -->
   <aside class="sidebar">
-    <div class="sidebar-top">
-      <div class="brand">PDF Assistant</div>
+    <div class="sidebar-top" style="padding-top:32px">
       <div class="user-card">
         <img class="user-avatar" id="user-avatar" src="" alt=""/>
         <div class="user-info">
@@ -156,7 +155,7 @@ input,textarea{font-family:inherit;outline:none;border:none}
       <div class="section-label">Document Library</div>
     </div>
     <div class="doc-list" id="doc-list">
-      <div class="doc-empty">Loading documents…</div>
+      <div class="doc-empty">Loading documents...</div>
     </div>
     <div class="sidebar-footer">
       <button class="logout-btn" onclick="logout()">Sign out</button>
@@ -186,8 +185,10 @@ input,textarea{font-family:inherit;outline:none;border:none}
           </div>
           <div class="form-row">
             <div class="field">
-              <label>Source Document</label>
-              <select id="source-select"><option value="">All Documents</option></select>
+              <label id="selected-count-label">Search Source</label>
+              <div id="multi-select-display" style="background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); padding:10px 14px; font-size:13px; color:#aaa; cursor:default">
+                Select documents in the sidebar
+              </div>
             </div>
             <div class="field" style="flex:0 0 auto">
               <label>Chunks</label>
@@ -223,19 +224,17 @@ input,textarea{font-family:inherit;outline:none;border:none}
 const BACKEND = 'https://rag-pdf-assistant-1jkt.onrender.com';
 let user = null;
 let docs = [];
+let selectedDocs = new Set();
 let selectedFile = null;
 let googleClientId = '';
-let activeDoc = null;
 
 // ── INIT ─────────────────────────────────────────────────────
 async function init() {
-  // Load config (google client id)
   try {
     const cfg = await fetch(`${BACKEND}/api/config`).then(r => r.json());
     googleClientId = cfg.google_client_id || '';
   } catch(e) { console.error('Config load failed', e); }
 
-  // Check saved session
   const saved = localStorage.getItem('rag_user');
   if (saved) {
     user = JSON.parse(saved);
@@ -243,7 +242,6 @@ async function init() {
     return;
   }
 
-  // Check for OAuth callback code
   const params = new URLSearchParams(window.location.search);
   const code = params.get('code');
   if (code) {
@@ -274,7 +272,7 @@ function startOAuth() {
 
 async function handleOAuthCallback(code) {
   const btn = document.getElementById('google-sign-in-btn');
-  if (btn) btn.textContent = 'Signing in…';
+  if (btn) btn.textContent = 'Signing in...';
   showLogin();
   try {
     const resp = await fetch(`${BACKEND}/api/auth/callback`, {
@@ -285,7 +283,6 @@ async function handleOAuthCallback(code) {
     if (!resp.ok) throw new Error('Auth failed');
     user = await resp.json();
     localStorage.setItem('rag_user', JSON.stringify(user));
-    // Clean URL
     window.history.replaceState({}, '', window.location.pathname);
     showApp();
   } catch(e) {
@@ -298,6 +295,7 @@ function logout() {
   localStorage.removeItem('rag_user');
   user = null;
   docs = [];
+  selectedDocs.clear();
   document.getElementById('app-screen').classList.remove('visible');
   showLogin();
 }
@@ -311,14 +309,11 @@ function showLogin() {
 function showApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-screen').classList.add('visible');
-
-  // Populate user info
   const av = document.getElementById('user-avatar');
   av.src = user.picture || '';
   av.style.display = user.picture ? 'block' : 'none';
   document.getElementById('user-name').textContent = user.name || user.email;
   document.getElementById('user-email').textContent = user.email;
-
   loadDocuments();
 }
 
@@ -334,17 +329,20 @@ function switchTab(name) {
 // ── DOCUMENTS ────────────────────────────────────────────────
 async function loadDocuments() {
   const el = document.getElementById('doc-list');
-  el.innerHTML = '<div class="doc-empty">Loading…</div>';
+  el.innerHTML = '<div class="doc-empty">Loading documents...</div>';
   try {
-    const data = await fetch(`${BACKEND}/api/list_sources?user_id=${encodeURIComponent(user.email)}`).then(r=>r.json());
+    const data = await fetch(`${BACKEND}/api/list_sources?user_id=${encodeURIComponent(user.email)}`).then(r=>{
+      if(!r.ok) throw new Error('Load failed');
+      return r.json();
+    });
     docs = (data.sources || []).map(s => {
       const prefix = user.email + '/';
       return s.startsWith(prefix) ? s.slice(prefix.length) : s;
     });
     renderDocList();
-    populateSourceSelect();
+    updateSelectionDisplay();
   } catch(e) {
-    el.innerHTML = '<div class="doc-empty">Failed to load documents</div>';
+    el.innerHTML = `<div class="doc-empty" style="color:#e07070">Load failed</div>`;
   }
 }
 
@@ -355,8 +353,9 @@ function renderDocList() {
     return;
   }
   el.innerHTML = docs.map(d => `
-    <div class="doc-item ${activeDoc===d?'active':''}" onclick="selectDoc('${d.replace(/'/g,"\\'")}')">
+    <div class="doc-item ${selectedDocs.has(d)?'active':''}" onclick="toggleDocSelection('${d.replace(/'/g,"\\'")}')">
       <div class="doc-name-wrap">
+        <input type="checkbox" class="doc-checkbox" ${selectedDocs.has(d)?'checked':''} onclick="event.stopPropagation(); toggleDocSelection('${d.replace(/'/g,"\\'")}')">
         <span class="doc-name" title="${d}">${d}</span>
       </div>
       <button class="delete-btn" onclick="event.stopPropagation(); deleteDoc('${d.replace(/'/g,"\\'")}')" title="Delete">×</button>
@@ -364,8 +363,33 @@ function renderDocList() {
   `).join('');
 }
 
+function toggleDocSelection(name) {
+  if (selectedDocs.has(name)) {
+    selectedDocs.delete(name);
+  } else {
+    selectedDocs.add(name);
+  }
+  renderDocList();
+  updateSelectionDisplay();
+}
+
+function updateSelectionDisplay() {
+  const display = document.getElementById('multi-select-display');
+  const label = document.getElementById('selected-count-label');
+  if (selectedDocs.size === 0) {
+    display.textContent = 'Searching across: All Documents';
+    label.textContent = 'Search Source';
+  } else if (selectedDocs.size === 1) {
+    display.textContent = `Searching: ${Array.from(selectedDocs)[0]}`;
+    label.textContent = '1 Document Selected';
+  } else {
+    display.textContent = `${selectedDocs.size} documents selected`;
+    label.textContent = `${selectedDocs.size} Documents Selected`;
+  }
+}
+
 async function deleteDoc(name) {
-  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+  if (!confirm(`Delete "${name}"?`)) return;
   try {
     const source_id = `${user.email}/${name}`;
     const resp = await fetch(`${BACKEND}/api/delete_source`, {
@@ -374,24 +398,11 @@ async function deleteDoc(name) {
       body: JSON.stringify({ source_id, user_id: user.email })
     });
     if (!resp.ok) throw new Error('Delete failed');
-    if (activeDoc === name) activeDoc = null;
+    selectedDocs.delete(name);
     await loadDocuments();
   } catch(e) {
-    alert('Failed to delete document: ' + e.message);
+    alert('Failed to delete: ' + e.message);
   }
-}
-
-function selectDoc(name) {
-  activeDoc = name;
-  renderDocList();
-  document.getElementById('source-select').value = name;
-  switchTab('ask');
-}
-
-function populateSourceSelect() {
-  const sel = document.getElementById('source-select');
-  sel.innerHTML = '<option value="">All Documents</option>' +
-    docs.map(d => `<option value="${d}">${d}</option>`).join('');
 }
 
 // ── UPLOAD ───────────────────────────────────────────────────
@@ -416,7 +427,7 @@ async function ingestDocument() {
   const btn = document.getElementById('ingest-btn');
   const alertEl = document.getElementById('upload-alert');
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Processing…';
+  btn.innerHTML = '<span class="spinner"></span>Processing...';
   alertEl.innerHTML = '';
   try {
     const form = new FormData();
@@ -425,7 +436,7 @@ async function ingestDocument() {
     const resp = await fetch(`${BACKEND}/api/ingest`, { method:'POST', body: form });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.detail || 'Ingest failed');
-    alertEl.innerHTML = `<div class="alert alert-success">Successfully ingested <strong>${selectedFile.name}</strong> — ${data.ingested} chunks indexed.</div>`;
+    alertEl.innerHTML = `<div class="alert alert-success">Successfully ingested <strong>${selectedFile.name}</strong>.</div>`;
     selectedFile = null;
     document.getElementById('file-input').value = '';
     document.getElementById('file-selected').style.display = 'none';
@@ -441,23 +452,24 @@ async function ingestDocument() {
 // ── ASK ──────────────────────────────────────────────────────
 async function askQuestion() {
   const question = document.getElementById('question-input').value.trim();
-  const sourceSelect = document.getElementById('source-select').value;
   const topK = parseInt(document.getElementById('top-k').value) || 5;
   const alertEl = document.getElementById('ask-alert');
   const outputEl = document.getElementById('qa-output');
   const btn = document.getElementById('search-btn');
-  if (!question) {
-    alertEl.innerHTML = '<div class="alert alert-info">Please enter a question.</div>';
-    return;
-  }
+  if (!question) return;
   alertEl.innerHTML = '';
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Searching…';
+  btn.innerHTML = '<span class="spinner"></span>Searching...';
   outputEl.innerHTML = '';
   try {
-    const source_id = sourceSelect ? `${user.email}/${sourceSelect}` : null;
+    // If no docs selected, send null to search all
+    const source_id = selectedDocs.size > 0 
+      ? Array.from(selectedDocs).map(name => `${user.email}/${name}`) 
+      : null;
+
     const body = { question, top_k: topK, user_id: user.email };
     if (source_id) body.source_id = source_id;
+
     const resp = await fetch(`${BACKEND}/api/query`, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
@@ -478,7 +490,7 @@ async function askQuestion() {
       </div>
       ${sources.length ? `
       <div class="qa-sources">
-        <div class="qa-label">Sources</div>
+        <div class="qa-label">Sources Used</div>
         <div>${sources.map(s=>`<span class="source-chip">${escHtml(s)}</span>`).join('')}</div>
       </div>` : ''}
     `;
@@ -491,7 +503,6 @@ async function askQuestion() {
   }
 }
 
-// Allow Enter key in question input
 document.getElementById('question-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') askQuestion();
 });
@@ -500,7 +511,6 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// Boot
 init();
 </script>
 </body>

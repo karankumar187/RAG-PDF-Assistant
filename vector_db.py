@@ -44,19 +44,40 @@ class QdrantStorage:
         points = [PointStruct(id=ids[i], vector=vectors[i], payload=payloads[i]) for i in range(len(ids))]
         self.client.upsert(self.collection, points=points)
 
-    def search(self, query_vector, top_k: int = 5, source_id: str = None, user_prefix: str = None):
-        """Search with optional exact source_id filter or user_prefix filter."""
+    def search(self, query_vector, top_k: int = 5, source_id: str | list[str] = None, user_prefix: str = None):
+        """Search with optional exact source_id filter (or list of IDs) or user_prefix filter."""
         query_filter = None
         if source_id:
-            # Exact match — user querying a specific file
-            query_filter = Filter(
-                must=[
-                    FieldCondition(
-                        key="source",
-                        match=MatchValue(value=source_id)
-                    )
-                ]
-            )
+            if isinstance(source_id, str):
+                # Exact match — user querying a single file
+                query_filter = Filter(
+                    must=[
+                        FieldCondition(
+                            key="source",
+                            match=MatchValue(value=source_id)
+                        )
+                    ]
+                )
+            elif isinstance(source_id, list):
+                # Match any of the provided source IDs
+                query_filter = Filter(
+                    must=[
+                        FieldCondition(
+                            key="source",
+                            match=MatchValue(value=source_id) if len(source_id) == 1 else MatchValue(value=source_id) # Qdrant match value can take a list? No, MatchAny is for that.
+                        )
+                    ]
+                )
+                # Wait, Qdrant FieldCondition match can take MatchAny
+                from qdrant_client.models import MatchAny
+                query_filter = Filter(
+                    must=[
+                        FieldCondition(
+                            key="source",
+                            match=MatchAny(any=source_id)
+                        )
+                    ]
+                )
         elif user_prefix:
             # Query all docs belonging to this user exactly
             query_filter = Filter(

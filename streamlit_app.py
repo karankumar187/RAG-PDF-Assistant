@@ -129,10 +129,10 @@ header { background: transparent !important; }
     background-color: #1a1a1a !important;
     border-right: 1px solid #2a2a2a;
 }
-[data-testid="stSidebar"] .stMarkdown p,
-[data-testid="stSidebar"] .stMarkdown h1,
-[data-testid="stSidebar"] .stMarkdown h2,
-[data-testid="stSidebar"] .stMarkdown h3 {
+[data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2 {
+    display: none !important;
+}
+[data-testid="stSidebar"] .stMarkdown p {
     color: #b0b0b0 !important;
 }
 
