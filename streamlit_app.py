@@ -4,6 +4,7 @@ import time
 import streamlit as st
 from dotenv import load_dotenv
 import os
+import requests
 import urllib.parse
 from authlib.integrations.requests_client import OAuth2Session
 import extra_streamlit_components as stx
