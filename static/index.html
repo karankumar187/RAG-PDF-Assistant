@@ -24,7 +24,7 @@ input,textarea{font-family:inherit;outline:none;border:none}
 .login-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:48px 40px;text-align:center;width:340px;animation:fadeUp .4s ease}
 .login-card h1{font-size:24px;font-weight:700;color:#fff;margin-bottom:8px}
 .login-card p{color:var(--muted);font-size:13px;margin-bottom:32px;line-height:1.6}
-.login-logo{width:48px;height:48px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:22px}
+.login-logo{width:48px;height:48px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:22px;color:var(--muted)}
 .google-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px 20px;background:#fff;color:#1a1a1a;border-radius:var(--radius);font-size:14px;font-weight:600;transition:opacity .15s;cursor:pointer}
 .google-btn:hover{opacity:.88}
 .google-btn svg{flex-shrink:0}
@@ -37,7 +37,6 @@ input,textarea{font-family:inherit;outline:none;border:none}
 .sidebar{width:var(--sidebar);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
 .sidebar-top{padding:20px 16px 0}
 .brand{font-size:15px;font-weight:700;color:#fff;margin-bottom:20px;display:flex;align-items:center;gap:8px}
-.brand span{font-size:18px}
 .user-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px;margin-bottom:20px}
 .user-avatar{width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--subtle)}
 .user-info{min-width:0}
@@ -45,12 +44,15 @@ input,textarea{font-family:inherit;outline:none;border:none}
 .user-email{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .section-label{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;padding:0 4px}
 .doc-list{flex:1;overflow-y:auto;padding:0 16px 16px}
-.doc-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;cursor:pointer;transition:background .15s;margin-bottom:2px}
+.doc-item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:6px;cursor:pointer;transition:background .15s;margin-bottom:2px;position:relative}
 .doc-item:hover{background:var(--surface2)}
 .doc-item.active{background:var(--surface2);border-left:2px solid #888}
-.doc-icon{color:var(--muted);flex-shrink:0;font-size:13px}
+.doc-name-wrap{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
 .doc-name{font-size:12px;color:#c0c0c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .doc-empty{font-size:12px;color:var(--muted);padding:8px 10px;font-style:italic}
+.delete-btn{opacity:0;color:var(--muted);font-size:16px;padding:2px 6px;border-radius:4px;transition:all .15s;flex-shrink:0}
+.doc-item:hover .delete-btn{opacity:1}
+.delete-btn:hover{background:rgba(255,112,112,0.15);color:#e07070}
 .sidebar-footer{padding:16px;border-top:1px solid var(--border)}
 .logout-btn{width:100%;padding:9px;background:transparent;border:1px solid var(--border);border-radius:var(--radius);color:var(--muted);font-size:13px;transition:all .15s}
 .logout-btn:hover{background:var(--surface2);color:var(--text)}
@@ -128,7 +130,7 @@ input,textarea{font-family:inherit;outline:none;border:none}
 <!-- LOGIN -->
 <div id="login-screen">
   <div class="login-card">
-    <div class="login-logo">📄</div>
+    <div class="login-logo">DOC</div>
     <h1>PDF Assistant</h1>
     <p>Upload your documents and ask questions.<br/>Answers are grounded in your own files.</p>
     <button class="google-btn" id="google-sign-in-btn" onclick="startOAuth()">
@@ -143,7 +145,7 @@ input,textarea{font-family:inherit;outline:none;border:none}
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="sidebar-top">
-      <div class="brand"><span>📄</span> PDF Assistant</div>
+      <div class="brand">PDF Assistant</div>
       <div class="user-card">
         <img class="user-avatar" id="user-avatar" src="" alt=""/>
         <div class="user-info">
@@ -203,12 +205,12 @@ input,textarea{font-family:inherit;outline:none;border:none}
         <div id="upload-alert"></div>
         <div class="drop-zone" id="drop-zone">
           <input type="file" accept=".pdf" id="file-input" onchange="onFileSelected(this.files[0])"/>
-          <div class="drop-icon">📁</div>
+          <div class="drop-icon">↑</div>
           <h3>Drop a PDF here or click to browse</h3>
           <p>Only PDF files are supported</p>
         </div>
         <div class="file-selected" id="file-selected" style="display:none">
-          <div class="file-selected-name">📄 <span id="selected-file-name"></span></div>
+          <div class="file-selected-name"><span id="selected-file-name"></span></div>
           <button class="ingest-btn" id="ingest-btn" onclick="ingestDocument()">Ingest Document</button>
         </div>
       </div>
@@ -354,10 +356,29 @@ function renderDocList() {
   }
   el.innerHTML = docs.map(d => `
     <div class="doc-item ${activeDoc===d?'active':''}" onclick="selectDoc('${d.replace(/'/g,"\\'")}')">
-      <span class="doc-icon">📄</span>
-      <span class="doc-name" title="${d}">${d}</span>
+      <div class="doc-name-wrap">
+        <span class="doc-name" title="${d}">${d}</span>
+      </div>
+      <button class="delete-btn" onclick="event.stopPropagation(); deleteDoc('${d.replace(/'/g,"\\'")}')" title="Delete">×</button>
     </div>
   `).join('');
+}
+
+async function deleteDoc(name) {
+  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+  try {
+    const source_id = `${user.email}/${name}`;
+    const resp = await fetch(`${BACKEND}/api/delete_source`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ source_id, user_id: user.email })
+    });
+    if (!resp.ok) throw new Error('Delete failed');
+    if (activeDoc === name) activeDoc = null;
+    await loadDocuments();
+  } catch(e) {
+    alert('Failed to delete document: ' + e.message);
+  }
 }
 
 function selectDoc(name) {
@@ -404,13 +425,13 @@ async function ingestDocument() {
     const resp = await fetch(`${BACKEND}/api/ingest`, { method:'POST', body: form });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.detail || 'Ingest failed');
-    alertEl.innerHTML = `<div class="alert alert-success">✓ Ingested <strong>${selectedFile.name}</strong> — ${data.ingested} chunks indexed.</div>`;
+    alertEl.innerHTML = `<div class="alert alert-success">Successfully ingested <strong>${selectedFile.name}</strong> — ${data.ingested} chunks indexed.</div>`;
     selectedFile = null;
     document.getElementById('file-input').value = '';
     document.getElementById('file-selected').style.display = 'none';
     await loadDocuments();
   } catch(e) {
-    alertEl.innerHTML = `<div class="alert alert-error">✗ ${e.message}</div>`;
+    alertEl.innerHTML = `<div class="alert alert-error">Error: ${e.message}</div>`;
   } finally {
     btn.disabled = false;
     btn.textContent = 'Ingest Document';
@@ -458,12 +479,12 @@ async function askQuestion() {
       ${sources.length ? `
       <div class="qa-sources">
         <div class="qa-label">Sources</div>
-        <div>${sources.map(s=>`<span class="source-chip">📄 ${escHtml(s)}</span>`).join('')}</div>
+        <div>${sources.map(s=>`<span class="source-chip">${escHtml(s)}</span>`).join('')}</div>
       </div>` : ''}
     `;
     outputEl.scrollIntoView({behavior:'smooth', block:'start'});
   } catch(e) {
-    alertEl.innerHTML = `<div class="alert alert-error">✗ ${e.message}</div>`;
+    alertEl.innerHTML = `<div class="alert alert-error">Error: ${e.message}</div>`;
   } finally {
     btn.disabled = false;
     btn.textContent = 'Search';

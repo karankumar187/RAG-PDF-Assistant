@@ -273,4 +273,19 @@ async def sync_query(req: QueryRequest):
         return {"answer": answer, "sources": sources, "num_contexts": len(contexts)}
 
 
+class DeleteRequest(BaseModel):
+    source_id: str
+    user_id: str
+
+
+@app.post("/api/delete_source")
+def delete_source(req: DeleteRequest):
+    store = QdrantStorage()
+    # Basic security check
+    if not req.source_id.startswith(req.user_id):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    store.delete_by_source(req.source_id)
+    return {"status": "ok"}
+
+
 inngest.fast_api.serve(app, inngest_client, [rag_ingest_pdf, rag_query_pdf_ai])
