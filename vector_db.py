@@ -1,6 +1,7 @@
 import os
 from qdrant_client import QdrantClient
 from qdrant_client.models import VectorParams, Distance, PointStruct, Filter, FieldCondition, MatchValue, PayloadSchemaType, MatchText
+from typing import Union
 
 
 class QdrantStorage:
@@ -44,7 +45,7 @@ class QdrantStorage:
         points = [PointStruct(id=ids[i], vector=vectors[i], payload=payloads[i]) for i in range(len(ids))]
         self.client.upsert(self.collection, points=points)
 
-    def search(self, query_vector, top_k: int = 5, source_id: str | list[str] = None, user_prefix: str = None):
+    def search(self, query_vector, top_k: int = 5, source_id: Union[str, list[str]] = None, user_prefix: str = None):
         """Search with optional exact source_id filter (or list of IDs) or user_prefix filter."""
         query_filter = None
         if source_id:

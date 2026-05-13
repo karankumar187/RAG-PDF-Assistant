@@ -11,7 +11,7 @@ import os
 import uuid
 import httpx
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Union
 from fastapi import UploadFile, File
 import tempfile
 import shutil
@@ -23,7 +23,7 @@ from custom_types import RAGChunkAndSrc, RAGUpsertResult, RAGSearchResult, RAGQu
 class QueryRequest(BaseModel):
     question: str
     top_k: int = 5
-    source_id: Optional[str | list[str]] = None   # single file OR list of files
+    source_id: Optional[Union[str, list[str]]] = None   # single file OR list of files
     user_id: Optional[str] = None                # user email — used to scope "All Documents" searches
 
 
