@@ -58,7 +58,7 @@ def handle_oauth():
             
             user_data = resp.json()
             st.session_state.user = user_data
-            cookie_manager.set("rag_user_session", user_data)
+            cookie_manager.set("rag_user_session", user_data, max_age=86400*30, secure=True, same_site="lax")
             
             # Clear query params so a refresh doesn't trigger oauth again
             st.query_params.clear()
