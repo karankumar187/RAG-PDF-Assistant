@@ -340,10 +340,9 @@ async function loadDocuments() {
   const el = document.getElementById('doc-list');
   el.innerHTML = '<div class="doc-empty">Loading documents...</div>';
   try {
-    const data = await fetch(`${BACKEND}/api/list_sources?user_id=${encodeURIComponent(user.email)}`).then(r=>{
-      if(!r.ok) throw new Error('Load failed');
-      return r.json();
-    });
+    const resp = await fetch(`${BACKEND}/api/list_sources?user_id=${encodeURIComponent(user.email)}`);
+    if (!resp.ok) throw new Error('Could not fetch document list');
+    const data = await resp.json();
     docs = (data.sources || []).map(s => {
       const prefix = user.email + '/';
       return s.startsWith(prefix) ? s.slice(prefix.length) : s;
@@ -351,7 +350,7 @@ async function loadDocuments() {
     renderDocList();
     updateSelectionDisplay();
   } catch(e) {
-    el.innerHTML = `<div class="doc-empty" style="color:#e07070">Load failed</div>`;
+    el.innerHTML = `<div class="doc-empty" style="color:#e07070">Failed to load library</div>`;
   }
 }
 
@@ -482,8 +481,13 @@ async function askQuestion() {
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify(body),
     });
+    
+    if (!resp.ok) {
+      const errorData = await resp.json().catch(() => ({}));
+      throw new Error(errorData.detail || `Server error (${resp.status}) - please try again.`);
+    }
+
     const data = await resp.json();
-    if (!resp.ok) throw new Error(data.detail || 'Query failed');
     const prefix = user.email + '/';
     const sources = (data.sources||[]).map(s => s.startsWith(prefix) ? s.slice(prefix.length) : s);
     outputEl.innerHTML = `
@@ -503,7 +507,7 @@ async function askQuestion() {
     `;
     outputEl.scrollIntoView({behavior:'smooth', block:'start'});
   } catch(e) {
-    alertEl.innerHTML = `<div class="alert alert-error">Error: ${e.message}</div>`;
+    alertEl.innerHTML = `<div class="alert alert-error"><strong>Search Failed:</strong> ${e.message}</div>`;
   } finally {
     btn.disabled = false;
     btn.textContent = 'Search';

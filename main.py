@@ -106,7 +106,7 @@ async def rag_query_pdf_ai(ctx: inngest.Context) -> RAGQueryResult:
                     "temperature": 0.2,
                     "max_tokens": 500
                 },
-                timeout=60.0
+                timeout=90.0
             )
             if response.status_code != 200:
                 raise Exception(f"OpenRouter API error: {response.status_code} - {response.text}")
@@ -263,7 +263,7 @@ async def sync_query(req: QueryRequest):
                 "temperature": 0.2,
                 "max_tokens": 500
             },
-            timeout=60.0
+            timeout=90.0
         )
         if response.status_code != 200:
             raise Exception(f"OpenRouter API error: {response.status_code} - {response.text}")
