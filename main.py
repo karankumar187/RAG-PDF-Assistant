@@ -177,6 +177,14 @@ def health_check():
     return {"status": "ok", "message": "Backend is running!"}
 
 
+@app.get("/wake")
+@app.get("/api/wake")
+def wake_up():
+    """Endpoint for cron-job/pinging services to keep the Render container awake."""
+    return {"status": "ok", "message": "Server is awake!"}
+
+
+
 @app.get("/api/config")
 def get_config():
     return {
