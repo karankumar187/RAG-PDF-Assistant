@@ -42,9 +42,10 @@ input,textarea{font-family:inherit;outline:none;border:none}
 .user-email{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .section-label{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;padding:0 4px}
 .doc-list{flex:1;overflow-y:auto;padding:0 16px 16px}
-.doc-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:6px;cursor:pointer;transition:all .15s;margin-bottom:4px;position:relative;border:1px solid transparent}
+.doc-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px 10px 20px;border-radius:6px;cursor:pointer;transition:all .15s;margin-bottom:4px;position:relative}
 .doc-item:hover{background:var(--surface2)}
-.doc-item.active{background:var(--surface2);border-color:#555}
+.doc-item.active{background:var(--surface2)}
+.doc-item.active::before{content:'';position:absolute;left:6px;top:8px;bottom:8px;width:4px;background:#fff;border-radius:2px}
 .doc-name-wrap{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
 .doc-name{font-size:12px;color:#c0c0c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .doc-empty{font-size:12px;color:var(--muted);padding:8px 10px;font-style:italic}
